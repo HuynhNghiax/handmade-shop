@@ -1,1 +1,6 @@
 @import "tailwindcss";
+@theme {
+  /* Ghi đè trực tiếp biến này để nó không dùng Times New Roman nữa */
+  --font-serif: "Cormorant Garamond", serif;
+  --font-sans: "Plus Jakarta Sans", ui-sans-serif, system-ui;
+}

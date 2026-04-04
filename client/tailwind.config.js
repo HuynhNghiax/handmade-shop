@@ -20,7 +20,7 @@ export default {
         }
       },
       fontFamily: {
-        'serif': ['"DM Serif Display"', 'serif'], 
+        'serif': ['"Cormorant Garamond"', 'serif'], 
         'sans': ['"Plus Jakarta Sans"', 'sans-serif'],
       },
     },
