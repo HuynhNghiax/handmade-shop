@@ -1,62 +1,87 @@
-import React from 'react';
-import { Link } from 'react-router-dom';
+import React, { useState } from 'react';
+import { Link, useNavigate } from 'react-router-dom';
+import axios from 'axios';
 
 const Register = () => {
+  const [formData, setFormData] = useState({ name: '', email: '', password: '', otp: '' });
+  const [step, setStep] = useState(1); // 1: Nhập thông tin, 2: Nhập OTP
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState("");
+  const navigate = useNavigate();
+
+  // Gửi OTP
+  const handleRequestOtp = async (e) => {
+    e.preventDefault();
+    setLoading(true);
+    setError("");
+    try {
+      await axios.post('http://localhost:5000/api/auth/request-otp', { email: formData.email });
+      setStep(2);
+      alert("Mã OTP đã gửi đến Gmail của bạn!");
+    } catch (err) {
+      setError(err.response?.data?.message || "Không thể gửi OTP");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Hoàn tất đăng ký
+  const handleVerifyAndRegister = async (e) => {
+    e.preventDefault();
+    setLoading(true);
+    setError("");
+    try {
+      await axios.post('http://localhost:5000/api/auth/register', formData);
+      alert("Đăng ký thành công! Hãy đăng nhập.");
+      navigate('/login');
+    } catch (err) {
+      setError(err.response?.data?.message || "OTP không chính xác");
+    } finally {
+      setLoading(false);
+    }
+  };
+
   return (
-    <div className="min-h-screen bg-pink-50/50 flex items-center justify-center p-6 relative overflow-hidden">
-      {/* Trang trí nền tương tự */}
-      <div className="absolute top-0 left-0 size-96 bg-pink-200/30 rounded-full blur-3xl -translate-y-1/2 -translate-x-1/4"></div>
-
-      <div className="w-full max-w-md bg-white rounded-[3rem] shadow-2xl shadow-pink-100 p-10 md:p-14 relative z-10 border border-white">
+    <div className="min-h-screen bg-pink-50/50 flex items-center justify-center p-6 relative font-sans">
+      <div className="w-full max-w-md bg-white rounded-[3rem] shadow-2xl shadow-pink-100 p-10 md:p-14 relative z-10">
         <div className="text-center mb-10">
-          <h2 className="text-4xl font-serif text-gray-950 mb-3 tracking-tighter">Tham gia <span className="text-pink-400 italic">với Pinky</span></h2>
-          <p className="text-gray-400 text-sm font-light">Cùng tạo nên những kỉ niệm đáng nhớ cùng đồ handmade</p>
-        </div>
-
-        <form className="space-y-5" onSubmit={(e) => e.preventDefault()}>
-          <div>
-            <label className="block text-[10px] font-black uppercase tracking-[0.2em] text-gray-400 mb-2 ml-4">Họ và tên</label>
-            <input 
-              type="text" 
-              placeholder="Nguyễn Văn A"
-              className="w-full bg-gray-50 border-none rounded-2xl px-6 py-4 text-sm focus:ring-2 focus:ring-pink-200 transition-all outline-none"
-            />
-          </div>
-
-          <div>
-            <label className="block text-[10px] font-black uppercase tracking-[0.2em] text-gray-400 mb-2 ml-4">Email</label>
-            <input 
-              type="email" 
-              placeholder="example@gmail.com"
-              className="w-full bg-gray-50 border-none rounded-2xl px-6 py-4 text-sm focus:ring-2 focus:ring-pink-200 transition-all outline-none"
-            />
-          </div>
-
-          <div>
-            <label className="block text-[10px] font-black uppercase tracking-[0.2em] text-gray-400 mb-2 ml-4">Mật khẩu mới</label>
-            <input 
-              type="password" 
-              placeholder="Tối thiểu 8 ký tự"
-              className="w-full bg-gray-50 border-none rounded-2xl px-6 py-4 text-sm focus:ring-2 focus:ring-pink-200 transition-all outline-none"
-            />
-          </div>
-
-          <div className="flex items-center gap-3 px-2">
-            <input type="checkbox" className="size-4 accent-pink-400 rounded" id="terms" />
-            <label htmlFor="terms" className="text-[10px] text-gray-400 font-medium">Tôi đồng ý với các điều khoản dịch vụ</label>
-          </div>
-
-          <button className="w-full bg-pink-400 hover:bg-pink-500 text-white font-black py-5 rounded-2xl shadow-lg shadow-pink-100 transition-all transform active:scale-95 uppercase tracking-widest text-xs mt-4">
-            Tạo tài khoản
-          </button>
-        </form>
-
-        <div className="mt-10 text-center">
-          <p className="text-sm text-gray-400">
-            Đã là thành viên?{' '}
-            <Link to="/login" className="text-pink-500 font-bold hover:underline">Đăng nhập</Link>
+          <h2 className="text-4xl font-serif text-gray-950 mb-3 tracking-tighter">
+            {step === 1 ? "Đăng ký" : "Xác thực OTP"}
+          </h2>
+          <p className="text-gray-400 text-sm font-light">
+            {step === 1 ? "Nhập thông tin để nhận mã xác thực" : `Mã đã gửi đến ${formData.email}`}
           </p>
         </div>
+
+        {error && <p className="text-red-500 text-center text-xs mb-4 font-bold uppercase">{error}</p>}
+
+        {step === 1 ? (
+          <form className="space-y-5" onSubmit={handleRequestOtp}>
+            <input type="text" placeholder="Họ và tên" className="w-full bg-gray-50 rounded-2xl px-6 py-4 outline-none border border-transparent focus:border-pink-200" required onChange={(e) => setFormData({...formData, name: e.target.value})} />
+            <input type="email" placeholder="Gmail của bạn" className="w-full bg-gray-50 rounded-2xl px-6 py-4 outline-none border border-transparent focus:border-pink-200" required onChange={(e) => setFormData({...formData, email: e.target.value})} />
+            <input type="password" placeholder="Mật khẩu" className="w-full bg-gray-50 rounded-2xl px-6 py-4 outline-none border border-transparent focus:border-pink-200" required onChange={(e) => setFormData({...formData, password: e.target.value})} />
+            <button disabled={loading} type="submit" className="w-full bg-pink-400 text-white font-black py-5 rounded-2xl uppercase text-xs tracking-widest hover:bg-pink-500 transition-all">
+              {loading ? "Đang gửi..." : "Gửi mã OTP"}
+            </button>
+          </form>
+        ) : (
+          <form className="space-y-5" onSubmit={handleVerifyAndRegister}>
+            <div className="flex justify-center mb-6">
+              <input 
+                type="text" 
+                maxLength="6"
+                placeholder="000000" 
+                className="w-40 text-center text-3xl font-serif tracking-[0.5em] bg-pink-50 text-pink-500 border-none rounded-2xl py-4 focus:ring-2 focus:ring-pink-200 outline-none" 
+                required 
+                onChange={(e) => setFormData({...formData, otp: e.target.value})} 
+              />
+            </div>
+            <button disabled={loading} type="submit" className="w-full bg-gray-950 text-white font-black py-5 rounded-2xl uppercase text-xs tracking-widest hover:bg-pink-500 transition-all">
+              {loading ? "Đang xác thực..." : "Xác nhận & Đăng ký"}
+            </button>
+            <button type="button" onClick={() => setStep(1)} className="w-full text-[10px] font-bold uppercase text-gray-400 hover:text-pink-400">Quay lại sửa email</button>
+          </form>
+        )}
       </div>
     </div>
   );

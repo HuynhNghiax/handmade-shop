@@ -1,119 +1,167 @@
-import React, { useState, useEffect } from 'react';
-import { useParams, Link } from 'react-router-dom';
-import { allProducts } from '../data';
+import React, { useState, useEffect, useContext } from 'react';
+import { useParams, useNavigate } from 'react-router-dom';
+import axios from 'axios';
+import { CartContext } from '../context/CartContext'; // Import kho dữ liệu giỏ hàng
 
 const ProductDetail = () => {
   const { id } = useParams();
+  const navigate = useNavigate();
+  const [product, setProduct] = useState(null);
+  const [loading, setLoading] = useState(true);
   const [quantity, setQuantity] = useState(1);
   
-  const product = allProducts.find(p => p.id === parseInt(id));
+  // Lấy hàm addToCart từ Context để cập nhật Navbar ngay lập tức
+  const { addToCart } = useContext(CartContext);
 
-  useEffect(() => { window.scrollTo(0, 0); }, [id]);
+  useEffect(() => {
+    const fetchProduct = async () => {
+      try {
+        const res = await axios.get(`http://localhost:5000/api/products/${id}`);
+        setProduct(res.data);
+        setLoading(false);
+      } catch (err) {
+        console.error("Lỗi lấy chi tiết sản phẩm:", err);
+        setLoading(false);
+      }
+    };
+    fetchProduct();
+    window.scrollTo(0, 0); // Cuộn lên đầu trang khi vào xem
+  }, [id]);
 
-  if (!product) return (
-    <div className="min-h-screen flex items-center justify-center text-2xl font-serif italic text-gray-400">
-      Sản phẩm không tồn tại... <Link to="/products" className="ml-4 text-pink-400 underline font-sans not-italic">Quay lại</Link>
+  // Xử lý tăng giảm số lượng
+  const handleQuantity = (type) => {
+    if (type === 'dec') {
+      quantity > 1 && setQuantity(quantity - 1);
+    } else {
+      setQuantity(quantity + 1);
+    }
+  };
+
+  // Hàm xử lý khi bấm "Thêm vào giỏ" hoặc "Mua ngay"
+  const handleAction = (isRedirect) => {
+    if (!product) return;
+    
+    // Gọi hàm từ Context - Navbar sẽ tự nhảy số
+    addToCart(product, quantity);
+
+    if (isRedirect) {
+      navigate('/cart'); // Nếu là Mua ngay thì chuyển trang
+    } else {
+      alert(`Đã thêm ${quantity} món "${product.name}" vào giỏ hàng!`);
+    }
+  };
+
+  if (loading) return (
+    <div className="min-h-screen flex items-center justify-center font-serif italic text-2xl text-pink-400 animate-pulse">
+      Đang chuẩn bị hàng...
     </div>
   );
 
-  const formatPrice = (price) => new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(price);
+  if (!product) return (
+    <div className="min-h-screen flex flex-col items-center justify-center font-sans">
+      <h2 className="text-2xl font-serif mb-4 text-gray-400 italic">Sản phẩm không tồn tại</h2>
+      <button onClick={() => navigate('/products')} className="text-pink-500 font-bold underline uppercase text-[10px] tracking-widest">
+        Quay lại cửa hàng
+      </button>
+    </div>
+  );
 
   return (
-    <div className="min-h-screen bg-white">
-      <nav className="max-w-7xl mx-auto px-6 py-8">
-        <div className="flex items-center gap-2 text-xs font-black uppercase tracking-widest text-gray-400">
-          <Link to="/" className="hover:text-pink-500">PinkyCrafts</Link>
-          <span>/</span>
-          <Link to="/products" className="hover:text-pink-500">Cửa hàng</Link>
-          <span>/</span>
-          <span className="text-pink-500">{product.name}</span>
-        </div>
-      </nav>
+    <div className="min-h-screen bg-white font-sans text-gray-900 pb-20">
+      <div className="max-w-7xl mx-auto px-6 py-10 lg:py-20">
+        
+        {/* Nút quay lại */}
+        <button 
+          onClick={() => navigate(-1)} 
+          className="flex items-center gap-2 text-[10px] font-black uppercase tracking-widest text-gray-400 hover:text-pink-500 transition-all mb-12"
+        >
+          ← Quay lại
+        </button>
 
-      <main className="max-w-7xl mx-auto px-6 lg:px-10 py-12 lg:py-20 grid grid-cols-1 lg:grid-cols-2 gap-20">
-        <div className="space-y-6">
-          <div className="aspect-[4/5] overflow-hidden rounded-[4rem] bg-pink-50 border border-pink-100 shadow-sm">
-            <img src={product.img} alt={product.name} className="w-full h-full object-cover" />
-          </div>
-          <div className="grid grid-cols-3 gap-6">
-             <div className="aspect-square rounded-3xl overflow-hidden border-2 border-pink-100 cursor-pointer opacity-50 hover:opacity-100 transition">
-                <img src={product.img} className="w-full h-full object-cover" />
-             </div>
-             <div className="aspect-square rounded-3xl overflow-hidden bg-gray-50 border border-gray-100 cursor-pointer flex items-center justify-center text-gray-300">Image 2</div>
-             <div className="aspect-square rounded-3xl overflow-hidden bg-gray-50 border border-gray-100 cursor-pointer flex items-center justify-center text-gray-300">Image 3</div>
-          </div>
-        </div>
-
-        <div className="flex flex-col justify-center">
-          <span className="text-pink-400 font-black tracking-[0.3em] uppercase text-xs mb-6">
-            Handmade Collection / {product.category}
-          </span>
-          <h1 className="text-5xl lg:text-7xl font-serif text-gray-950 mb-8 tracking-tighter leading-[1.1]">
-            {product.name}
-          </h1>
-          <p className="text-4xl font-extrabold text-pink-500 mb-12 font-serif italic tracking-tight">
-            {formatPrice(product.price)}
-          </p>
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-16 lg:gap-24">
           
-          <div className="bg-pink-50/40 p-10 rounded-[3rem] mb-12 border border-pink-100/50">
-            <h5 className="font-bold text-gray-900 mb-4 uppercase text-xs tracking-widest">Mô tả sản phẩm:</h5>
-            <p className="text-gray-600 leading-relaxed font-light italic text-lg">
-              "{product.desc || "Sản phẩm được chế tác hoàn toàn bằng tay với sự tỉ mỉ trong từng chi tiết nhỏ nhất. Nguyên liệu hữu cơ an toàn và thân thiện."}"
-            </p>
+          {/* BÊN TRÁI: ẢNH SẢN PHẨM */}
+          <div className="lg:col-span-7">
+            <div className="rounded-[3rem] lg:rounded-[5rem] overflow-hidden bg-gray-50 border border-gray-100 shadow-2xl shadow-pink-100/30 aspect-[4/5]">
+              <img 
+                src={product.img} 
+                alt={product.name} 
+                className="w-full h-full object-cover hover:scale-105 transition-transform duration-[2s]" 
+              />
+            </div>
           </div>
 
-          <div className="space-y-8">
-            <div className="flex items-center gap-10">
-              <div className="flex items-center border-2 border-gray-100 rounded-full p-1 shadow-sm">
-                <button onClick={() => setQuantity(Math.max(1, quantity - 1))} className="size-12 flex items-center justify-center hover:bg-pink-100 rounded-full transition text-xl font-bold">-</button>
-                <span className="w-16 text-center font-black text-xl">{quantity}</span>
-                <button onClick={() => setQuantity(quantity + 1)} className="size-12 flex items-center justify-center hover:bg-pink-100 rounded-full transition text-xl font-bold">+</button>
+          {/* BÊN PHẢI: THÔNG TIN CHI TIẾT */}
+          <div className="lg:col-span-5 flex flex-col justify-center">
+            <div className="space-y-8">
+              <div>
+                <span className="bg-pink-50 text-pink-500 px-4 py-1.5 rounded-full text-[10px] font-black uppercase tracking-widest mb-6 inline-block">
+                  {product.category}
+                </span>
+                <h1 className="text-5xl lg:text-7xl font-serif tracking-tighter text-gray-950 leading-[1.1] mb-6">
+                  {product.name}
+                </h1>
+                <p className="text-4xl font-serif italic text-pink-500 tracking-tighter">
+                  {new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(product.price)}
+                </p>
               </div>
-              <p className="text-xs font-bold text-gray-400 uppercase tracking-widest">Sản phẩm có sẵn</p>
-            </div>
 
-            <div className="flex flex-col sm:flex-row gap-6">
-              <button className="flex-1 bg-pink-400 hover:bg-pink-500 text-white font-black py-6 rounded-full shadow-2xl shadow-pink-200 transition-all transform active:scale-95 text-sm uppercase tracking-widest">
-                Thêm vào giỏ
-              </button>
-              <button className="flex-1 bg-gray-950 text-white font-black py-6 rounded-full transition-all transform active:scale-95 text-sm uppercase tracking-widest hover:bg-black">
-                Mua ngay
-              </button>
-            </div>
-          </div>
+              <div className="h-[1px] bg-gray-100 w-full"></div>
 
-          <div className="mt-20 pt-10 border-t border-gray-100 flex gap-12 items-center">
-            <div className="text-center group">
-              <div className="size-12 bg-gray-50 rounded-2xl flex items-center justify-center mx-auto mb-3 group-hover:bg-pink-100 transition duration-500 text-2xl">🎁</div>
-              <p className="text-[10px] font-black uppercase tracking-widest text-gray-400">Quà tặng</p>
-            </div>
-            <div className="text-center group">
-              <div className="size-12 bg-gray-50 rounded-2xl flex items-center justify-center mx-auto mb-3 group-hover:bg-pink-100 transition duration-500 text-2xl">🚚</div>
-              <p className="text-[10px] font-black uppercase tracking-widest text-gray-400">Giao nhanh</p>
-            </div>
-            <div className="text-center group">
-              <div className="size-12 bg-gray-50 rounded-2xl flex items-center justify-center mx-auto mb-3 group-hover:bg-pink-100 transition duration-500 text-2xl">🍃</div>
-              <p className="text-[10px] font-black uppercase tracking-widest text-gray-400">Hữu cơ</p>
-            </div>
-          </div>
-        </div>
-      </main>
+              <div className="relative pt-4">
+                <p className="text-gray-500 font-light leading-relaxed tracking-tight italic text-lg lg:text-xl border-l-4 border-pink-100 pl-6">
+                  {product.desc || "Sản phẩm được chế tác hoàn toàn thủ công từ những vật liệu tự nhiên, mang đến nét đẹp riêng biệt và đầy cảm hứng cho không gian sống của bạn."}
+                </p>
+              </div>
 
-      <section className="bg-gray-50 py-24 mt-20">
-        <div className="max-w-7xl mx-auto px-6 lg:px-10">
-          <h3 className="text-3xl font-serif text-center mb-16 italic">Có thể bạn cũng sẽ thích...</h3>
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-8">
-            {allProducts.filter(p => p.id !== parseInt(id)).slice(0, 4).map(p => (
-              <Link to={`/product/${p.id}`} key={p.id} className="group">
-                <div className="aspect-square rounded-[2rem] overflow-hidden bg-white border border-gray-100 shadow-sm mb-4">
-                  <img src={p.img} className="w-full h-full object-cover group-hover:scale-110 transition duration-700" />
+              {/* CHỌN SỐ LƯỢNG */}
+              <div className="pt-8 space-y-6">
+                <div className="flex items-center gap-6">
+                  <span className="text-[10px] font-black uppercase tracking-widest text-gray-400">Số lượng:</span>
+                  <div className="flex items-center border-2 border-gray-100 rounded-2xl p-1 bg-gray-50">
+                    <button 
+                      onClick={() => handleQuantity('dec')} 
+                      className="size-12 flex items-center justify-center hover:bg-white rounded-xl transition font-bold text-xl"
+                    >
+                      -
+                    </button>
+                    <span className="w-12 text-center font-black text-lg">{quantity}</span>
+                    <button 
+                      onClick={() => handleQuantity('inc')} 
+                      className="size-12 flex items-center justify-center hover:bg-white rounded-xl transition font-bold text-xl"
+                    >
+                      +
+                    </button>
+                  </div>
                 </div>
-                <h5 className="font-bold text-center text-sm group-hover:text-pink-500 transition-colors">{p.name}</h5>
-              </Link>
-            ))}
+
+                {/* NHÓM NÚT BẤM */}
+                <div className="flex flex-col sm:flex-row gap-4 pt-4">
+                  <button 
+                    onClick={() => handleAction(false)}
+                    className="flex-1 border-2 border-gray-950 text-gray-950 font-black py-6 rounded-full hover:bg-gray-950 hover:text-white transition-all uppercase text-xs tracking-widest active:scale-95"
+                  >
+                    Thêm vào giỏ
+                  </button>
+                  <button 
+                    onClick={() => handleAction(true)}
+                    className="flex-1 bg-pink-400 text-white font-black py-6 rounded-full shadow-2xl shadow-pink-200 hover:bg-pink-500 transition-all uppercase text-xs tracking-widest active:scale-95"
+                  >
+                    Mua ngay
+                  </button>
+                </div>
+              </div>
+
+              <div className="flex items-center justify-center gap-6 opacity-30 pt-10">
+                 <span className="text-[9px] font-bold uppercase tracking-widest italic">Giao hàng toàn quốc</span>
+                 <span className="size-1 bg-gray-300 rounded-full"></span>
+                 <span className="text-[9px] font-bold uppercase tracking-widest italic">Đổi trả trong 7 ngày</span>
+              </div>
+            </div>
           </div>
+
         </div>
-      </section>
+      </div>
     </div>
   );
 };

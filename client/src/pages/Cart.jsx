@@ -1,132 +1,108 @@
-import React, { useState } from 'react';
-import { Link } from 'react-router-dom';
-import { allProducts } from '../data';
+import React, { useContext } from 'react';
+import { Link, useNavigate } from 'react-router-dom';
+import { CartContext } from '../context/CartContext';
 
 const Cart = () => {
-  // Giả lập dữ liệu giỏ hàng (Sau này sẽ lấy từ Context hoặc Redux)
-  const [cartItems, setCartItems] = useState([
-    { ...allProducts[0], quantity: 1 },
-    { ...allProducts[2], quantity: 1 }
-  ]);
+  const { cartItems, removeItem, updateQuantity } = useContext(CartContext);
+  const navigate = useNavigate();
 
   const formatPrice = (price) => new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(price);
 
-  const updateQuantity = (id, delta) => {
-    setCartItems(prev => prev.map(item => 
-      item.id === id ? { ...item, quantity: Math.max(1, item.quantity + delta) } : item
-    ));
-  };
-
-  const removeItem = (id) => {
-    setCartItems(prev => prev.filter(item => item.id !== id));
-  };
-
   const subtotal = cartItems.reduce((acc, item) => acc + (item.price * item.quantity), 0);
-  const shipping = 30000;
+  const shipping = cartItems.length > 0 ? 30000 : 0;
 
   return (
     <div className="min-h-screen bg-white font-sans text-gray-900">
-      <main className="max-w-7xl mx-auto px-6 lg:px-10 py-16 lg:py-24">
+      <main className="max-w-7xl mx-auto px-6 py-16 lg:py-24">
         
-        {/* Tiêu đề trang - Dùng font Serif sang trọng */}
-        <div className="mb-16 border-b border-pink-50 pb-10">
-          <h1 className="text-5xl md:text-6xl font-serif text-gray-950 tracking-tighter">
-            Giỏ hàng của <span className="text-pink-400 italic">bạn</span>
-          </h1>
-          <p className="text-gray-400 mt-4 font-light tracking-tight">Bạn đang có {cartItems.length} sản phẩm trong túi đồ</p>
+        <div className="mb-16 border-b border-pink-50 pb-10 flex justify-between items-end">
+          <div>
+            <h1 className="text-5xl md:text-6xl font-serif text-gray-950 tracking-tighter">
+              Túi đồ của <span className="text-pink-400 italic">bạn</span>
+            </h1>
+            <p className="text-gray-400 mt-4 font-light tracking-tight uppercase text-[10px] font-black">
+              Có {cartItems.length} món đồ xinh đang chờ bạn
+            </p>
+          </div>
         </div>
 
         {cartItems.length > 0 ? (
-          <div className="grid grid-cols-1 lg:grid-cols-3 gap-16">
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-20">
             
-            {/* DANH SÁCH SẢN PHẨM (Bên trái) */}
-            <div className="lg:col-span-2 space-y-10">
+            {/* DANH SÁCH SẢN PHẨM */}
+            <div className="lg:col-span-2 space-y-12">
               {cartItems.map((item) => (
-                <div key={item.id} className="flex flex-col sm:flex-row items-center gap-8 pb-10 border-b border-gray-50 group">
-                  {/* Ảnh sản phẩm */}
-                  <div className="size-40 rounded-[2rem] overflow-hidden bg-pink-50 border border-pink-100 flex-shrink-0">
-                    <img src={item.img} alt={item.name} className="w-full h-full object-cover group-hover:scale-110 transition duration-700" />
+                <div key={item.id} className="flex flex-col sm:flex-row items-center gap-8 pb-12 border-b border-gray-50 group relative">
+                  {/* Nút Xóa (Thùng rác) */}
+                  <button 
+                    onClick={() => removeItem(item.id)}
+                    className="absolute top-0 right-0 sm:relative sm:top-auto sm:right-auto p-2 text-gray-300 hover:text-red-500 transition-colors"
+                    title="Xóa khỏi giỏ"
+                  >
+                    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" className="size-5">
+                      <path strokeLinecap="round" strokeLinejoin="round" d="m14.74 9-.346 9m-4.788 0L9.26 9m9.968-3.21c.342.052.682.107 1.022.166m-1.022-.165L18.16 19.673a2.25 2.25 0 0 1-2.244 2.077H8.084a2.25 2.25 0 0 1-2.244-2.077L4.772 5.79m14.456 0a48.108 48.108 0 0 0-3.478-.397m-12 .562c.34-.059.68-.114 1.022-.165m0 0a48.11 48.11 0 0 1 3.478-.397m7.5 0v-.916c0-1.18-.91-2.164-2.09-2.201a51.964 51.964 0 0 0-3.32 0c-1.18.037-2.09 1.022-2.09 2.201v.916m7.5 0a48.667 48.667 0 0 0-7.5 0" />
+                    </svg>
+                  </button>
+
+                  <div className="size-44 rounded-[3rem] overflow-hidden bg-pink-50 border border-pink-100 flex-shrink-0 shadow-sm">
+                    <img src={item.img} alt={item.name} className="w-full h-full object-cover" />
                   </div>
 
-                  {/* Thông tin chi tiết */}
                   <div className="flex-grow text-center sm:text-left">
-                    <span className="text-[10px] font-black uppercase tracking-tight text-pink-400 mb-1 block">{item.category}</span>
-                    <h3 className="text-xl font-bold text-gray-900 mb-2 tracking-tight">{item.name}</h3>
-                    <p className="text-pink-500 font-serif italic text-lg mb-4">{formatPrice(item.price)}</p>
-                    
-                    {/* Nút xóa */}
-                    <button 
-                      onClick={() => removeItem(item.id)}
-                      className="text-xs font-bold text-gray-300 hover:text-red-400 transition uppercase tracking-widest"
-                    >
-                      Xóa khỏi giỏ
-                    </button>
+                    <span className="text-[9px] font-black uppercase tracking-[0.2em] text-pink-400 mb-2 block">{item.category}</span>
+                    <h3 className="font-bold text-gray-950 mb-2 tracking-tight text-2xl font-serif italic">{item.name}</h3>
+                    <p className="text-gray-400 font-serif text-lg">{formatPrice(item.price)}</p>
                   </div>
 
-                  {/* Bộ tăng giảm số lượng */}
-                  <div className="flex items-center border-2 border-gray-100 rounded-full p-1 bg-gray-50/50">
-                    <button onClick={() => updateQuantity(item.id, -1)} className="size-10 flex items-center justify-center hover:bg-white rounded-full transition font-bold">-</button>
-                    <span className="w-10 text-center font-black text-sm">{item.quantity}</span>
-                    <button onClick={() => updateQuantity(item.id, 1)} className="size-10 flex items-center justify-center hover:bg-white rounded-full transition font-bold">+</button>
+                  <div className="flex items-center border-2 border-gray-100 rounded-2xl p-1 bg-gray-50">
+                    <button onClick={() => updateQuantity(item.id, -1)} className="size-10 flex items-center justify-center hover:bg-white rounded-xl transition font-bold">-</button>
+                    <span className="w-10 text-center font-black">{item.quantity}</span>
+                    <button onClick={() => updateQuantity(item.id, 1)} className="size-10 flex items-center justify-center hover:bg-white rounded-xl transition font-bold">+</button>
                   </div>
 
-                  {/* Tổng tiền món này */}
                   <div className="text-right hidden md:block w-32">
-                    <p className="font-serif font-bold text-xl text-gray-950 tracking-tighter">
+                    <p className="font-serif font-bold text-xl text-pink-500 tracking-tighter">
                       {formatPrice(item.price * item.quantity)}
                     </p>
                   </div>
                 </div>
               ))}
-              
-              <Link to="/products" className="inline-block mt-10 text-sm font-bold text-pink-400 hover:text-pink-600 transition tracking-tight">
-                ← Tiếp tục tìm thêm đồ xinh
-              </Link>
             </div>
 
-            {/* TỔNG KẾT ĐƠN HÀNG (Bên phải - Sticky) */}
+            {/* TỔNG KẾT */}
             <aside className="lg:col-span-1">
-              <div className="bg-gray-50 rounded-[3rem] p-10 sticky top-32 border border-gray-100">
-                <h4 className="text-2xl font-serif text-gray-950 mb-8 tracking-tight">Tạm tính</h4>
-                
-                <div className="space-y-4 mb-8 pb-8 border-b border-gray-200">
-                  <div className="flex justify-between text-sm">
-                    <span className="text-gray-500">Giá trị hàng hóa</span>
-                    <span className="font-bold">{formatPrice(subtotal)}</span>
+              <div className="bg-gray-950 text-white rounded-[3.5rem] p-10 sticky top-32 shadow-2xl shadow-pink-100">
+                <h4 className="text-2xl font-serif mb-10 tracking-tight italic">Tóm tắt đơn hàng</h4>
+                <div className="space-y-5 mb-10 pb-10 border-b border-white/10">
+                  <div className="flex justify-between text-sm text-gray-400 font-light">
+                    <span>Tạm tính</span>
+                    <span className="text-white font-bold">{formatPrice(subtotal)}</span>
                   </div>
-                  <div className="flex justify-between text-sm">
-                    <span className="text-gray-500">Phí vận chuyển</span>
-                    <span className="font-bold">{formatPrice(shipping)}</span>
+                  <div className="flex justify-between text-sm text-gray-400 font-light">
+                    <span>Phí vận chuyển</span>
+                    <span className="text-white font-bold">{formatPrice(shipping)}</span>
                   </div>
                 </div>
-
-                <div className="flex justify-between items-end mb-10">
-                  <span className="text-sm font-bold uppercase tracking-widest">Tổng cộng</span>
-                  <span className="text-3xl font-serif font-bold text-pink-500 tracking-tighter">
+                <div className="flex justify-between items-end mb-12">
+                  <span className="text-[10px] font-black uppercase tracking-widest text-pink-400">Tổng cộng</span>
+                  <span className="text-4xl font-serif font-bold tracking-tighter">
                     {formatPrice(subtotal + shipping)}
                   </span>
                 </div>
-
-                <button className="w-full bg-gray-950 text-white py-5 rounded-full font-black text-xs uppercase tracking-widest hover:bg-pink-500 transition-all shadow-xl shadow-pink-100 active:scale-95">
+                <button 
+                  onClick={() => navigate('/checkout')}
+                  className="w-full bg-pink-400 text-white py-6 rounded-full font-black text-xs uppercase tracking-widest hover:bg-white hover:text-gray-950 transition-all shadow-lg shadow-pink-400/20"
+                >
                   Tiến hành thanh toán
                 </button>
-                
-                <div className="mt-8 flex items-center justify-center gap-4 opacity-30">
-                   <span className="text-[10px] font-bold italic">Bảo mật 100%</span>
-                   <span className="text-[10px] font-bold italic">Thanh toán đa dạng</span>
-                </div>
               </div>
             </aside>
-
           </div>
         ) : (
-          /* TRẠNG THÁI GIỎ TRỐNG */
-          <div className="text-center py-40 animate-in fade-in duration-700">
-            <div className="text-8xl mb-8">🧺</div>
-            <h2 className="text-3xl font-serif italic text-gray-950 mb-4">Giỏ hàng của bạn đang trống</h2>
-            <p className="text-gray-400 font-light mb-12 max-w-sm mx-auto tracking-tight">Đừng để chiếc giỏ này cô đơn, hãy lấp đầy nó bằng những món đồ handmade tuyệt vời nhé!</p>
-            <Link to="/products" className="bg-pink-400 text-white px-12 py-5 rounded-full font-bold shadow-lg hover:bg-pink-500 transition-all uppercase text-xs tracking-widest inline-block">
-              Quay lại cửa hàng
+          <div className="text-center py-40">
+            <h2 className="text-3xl font-serif italic text-gray-400 mb-8">Giỏ hàng của bạn đang trống...</h2>
+            <Link to="/products" className="inline-block bg-gray-950 text-white px-10 py-5 rounded-full font-black text-[10px] uppercase tracking-widest hover:bg-pink-400 transition-all">
+              Quay lại cửa hàng ngay
             </Link>
           </div>
         )}
