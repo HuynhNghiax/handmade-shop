@@ -1,53 +1,47 @@
-const express = require('express');
-const cors = require('cors');
-const dotenv = require('dotenv');
-const sequelize = require('./config/db');
+require('dotenv').config();
+const express  = require('express');
+const cors     = require('cors');
+const passport = require('passport');
 
-// --- 1. IMPORT MODELS ---
-const User = require('./models/User');
-const Product = require('./models/Product');
-const Order = require('./models/Order');
-const CustomOrder = require('./models/CustomOrder');
-const Bid = require('./models/Bid');
-const Log = require('./models/Log');
+const sequelize        = require('./config/db');
+const configurePassport = require('./config/passport');
 
-// --- 2. IMPORT ROUTES ---
-const authRoute = require('./routes/auth');
-const productRoute = require('./routes/product');
-const orderRoute = require('./routes/order');
-const customOrderRoute = require('./routes/customOrder');
-const userRoute = require('./routes/user');
-const logRoute = require('./routes/log');
+// ROUTES
+const authRoutes        = require('./routes/auth');
+const productRoutes     = require('./routes/product');
+const orderRoutes       = require('./routes/order');
+const userRoutes        = require('./routes/user');
+const logRoutes         = require('./routes/log');
+const customOrderRoutes = require('./routes/customOrder');
 
-dotenv.config();
 const app = express();
 
-app.use(cors());
+// MIDDLEWARE CƠ BẢN
+app.use(cors({
+  origin:      process.env.CLIENT_URL || 'http://localhost:5173',
+  credentials: true,
+}));
 app.use(express.json());
 
-// --- 3. ĐĂNG KÝ ROUTES (SỬA LỖI 404 LOGS TẠI ĐÂY) ---
-app.use('/api/auth', authRoute);
-app.use('/api/products', productRoute);
-app.use('/api/orders', orderRoute);
-app.use('/api/custom-orders', customOrderRoute);
-app.use('/api/users', userRoute);
-app.use('/api/logs', logRoute); // Cổng cực kỳ quan trọng
+// KHỞI TẠO PASSPORT (KHÔNG DÙNG SESSION — DÙNG JWT) 
+configurePassport(); // Đăng ký các Strategy (Google, v.v.)
+app.use(passport.initialize());
 
-// --- 4. THIẾT LẬP QUAN HỆ ---
-User.hasMany(CustomOrder, { foreignKey: 'userId' });
-CustomOrder.belongsTo(User, { foreignKey: 'userId' });
-CustomOrder.hasMany(Bid, { foreignKey: 'customOrderId' });
-Bid.belongsTo(CustomOrder, { foreignKey: 'customOrderId' });
-User.hasMany(Bid, { foreignKey: 'makerId' });
-Bid.belongsTo(User, { foreignKey: 'makerId' });
-User.hasMany(Log, { foreignKey: 'userId' });
-Log.belongsTo(User, { foreignKey: 'userId' });
+// GẮN ROUTES
+app.use('/api/auth',          authRoutes);
+app.use('/api/products',      productRoutes);
+app.use('/api/orders',        orderRoutes);
+app.use('/api/users',         userRoutes);
+app.use('/api/logs',          logRoutes);
+app.use('/api/custom-orders', customOrderRoutes);
 
-// --- 5. CHẠY SERVER ---
-sequelize.sync({ force: false })
-    .then(() => {
-        console.log('✅ Hệ thống PinkyCrafts đã đồng bộ xong!');
-        const PORT = process.env.PORT || 5000;
-        app.listen(PORT, () => console.log(`🚀 Server đang chạy tại cổng ${PORT}`));
-    })
-    .catch(err => console.error('❌ Lỗi DB:', err));
+// KHỞI ĐỘNG SERVER
+const PORT = process.env.PORT || 5000;
+
+sequelize.sync({ alter: true }).then(() => {
+  app.listen(PORT, () => {
+    console.log(`Server PinkyCrafts đang chạy tại cổng ${PORT}`);
+  });
+}).catch(err => {
+  console.error('Kết nối database thất bại:', err);
+});
