@@ -3,6 +3,10 @@ import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import axios from 'axios';
 import { AuthContext } from '../context/AuthContext';
 
+/**
+ * Component nút Đăng nhập Google — tách riêng để tái sử dụng.
+ * (Dùng được ở cả Login lẫn Register nếu cần)
+ */
 const GoogleLoginButton = () => {
   const handleGoogleLogin = () => {
     // Redirect thẳng đến backend — passport xử lý toàn bộ OAuth flow
@@ -27,7 +31,7 @@ const GoogleLoginButton = () => {
   );
 };
 
-// TRANG ĐĂNG NHẬP CHÍNH
+// ─── TRANG ĐĂNG NHẬP CHÍNH ─────────────────────────────────────────────────────
 const Login = () => {
   const [email, setEmail]       = useState('');
   const [password, setPassword] = useState('');
@@ -41,8 +45,13 @@ const Login = () => {
   // Hiển thị lỗi nếu Google OAuth thất bại (redirect về /login?error=...)
   useEffect(() => {
     const errorParam = searchParams.get('error');
-    if (errorParam === 'google_failed') {
-      setError('Đăng nhập bằng Google thất bại. Vui lòng thử lại!');
+    const errorMessages = {
+      google_failed: 'Đăng nhập bằng Google thất bại. Vui lòng thử lại!',
+      email_has_password: 'Email này đã đăng ký bằng mật khẩu. Vui lòng dùng form đăng nhập thường!',
+      server_error: 'Lỗi máy chủ. Vui lòng thử lại sau.',
+    };
+    if (errorParam && errorMessages[errorParam]) {
+      setError(errorMessages[errorParam]);
     }
   }, [searchParams]);
 
@@ -84,12 +93,12 @@ const Login = () => {
           </div>
         )}
 
-        {/* ĐĂNG NHẬP GOOGLE */}
+        {/* ── ĐĂNG NHẬP GOOGLE ──────────────────────────────────────────── */}
         <div className="mb-6">
           <GoogleLoginButton />
         </div>
 
-        {/* DIVIDER */}
+        {/* ── DIVIDER ────────────────────────────────────────────────────── */}
         <div className="flex items-center gap-4 mb-6">
           <div className="flex-1 h-[1px] bg-gray-100"></div>
           <span className="text-[10px] font-black uppercase tracking-widest text-gray-300">
@@ -98,7 +107,7 @@ const Login = () => {
           <div className="flex-1 h-[1px] bg-gray-100"></div>
         </div>
 
-        {/* ĐĂNG NHẬP FORM */}
+        {/* ── ĐĂNG NHẬP FORM ─────────────────────────────────────────────── */}
         <form className="space-y-5" onSubmit={handleLogin}>
           <div className="space-y-1">
             <label className="text-[10px] font-black uppercase tracking-widest text-gray-400 ml-4">
