@@ -5,6 +5,7 @@ const passport = require('passport');
 
 const sequelize        = require('./config/db');
 const configurePassport = require('./config/passport');
+require('./models/associations');
 
 // ROUTES
 const authRoutes        = require('./routes/auth');

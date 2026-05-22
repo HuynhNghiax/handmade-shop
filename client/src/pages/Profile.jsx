@@ -11,6 +11,7 @@ const Profile = () => {
   });
   const [loading, setLoading] = useState(true);
   const [tab, setTab] = useState('profile_info');
+  const [orderFilter, setOrderFilter] = useState('Tất cả');
   const { user, login, logout } = useContext(AuthContext);
 
   const [isEditingInfo, setIsEditingInfo] = useState(false);
@@ -63,6 +64,20 @@ const Profile = () => {
         fetchProfile();
       } catch (err) {
         alert("Lỗi xác nhận rồi sếp!");
+      }
+    }
+  };
+
+  const cancelOrder = async (id) => {
+    if (window.confirm("Bạn có chắc chắn muốn hủy đơn hàng này?")) {
+      try {
+        await axios.put(`http://localhost:5000/api/orders/${id}/cancel`, {}, {
+          headers: { token: `Bearer ${user.accessToken}` }
+        });
+        alert("Hủy đơn thành công!");
+        fetchProfile();
+      } catch (err) {
+        alert(err.response?.data || "Lỗi khi hủy đơn!");
       }
     }
   };
@@ -192,26 +207,65 @@ const Profile = () => {
         <div className="space-y-8">
           {tab === 'orders' && (
             <div className="space-y-6">
-              {data.myOrders.length > 0 ? data.myOrders.map(order => (
-                <div key={order.id} className="bg-gray-50 p-10 rounded-[3rem] border border-gray-100 flex flex-col md:flex-row justify-between items-center gap-8">
-                  <div className="flex-grow">
+              <div className="flex flex-wrap justify-center gap-2 mb-6">
+                {['Tất cả', 'Chờ xác nhận', 'Đang giao', 'Hoàn thành', 'Đã hủy'].map(f => (
+                  <button key={f} onClick={() => setOrderFilter(f)} className={`px-4 py-2 rounded-full text-[10px] font-bold uppercase transition-all ${orderFilter === f ? 'bg-pink-500 text-white shadow-md' : 'bg-gray-100 text-gray-500 hover:bg-pink-50'}`}>{f}</button>
+                ))}
+              </div>
+              
+              {data.myOrders.filter(o => orderFilter === 'Tất cả' || o.status === orderFilter).length > 0 ? data.myOrders.filter(o => orderFilter === 'Tất cả' || o.status === orderFilter).map(order => (
+                <div key={order.id} className="bg-gray-50 p-8 md:p-10 rounded-[3rem] border border-gray-100 flex flex-col md:flex-row justify-between items-center gap-8 shadow-sm">
+                  <div className="flex-grow w-full md:w-auto">
                     <div className="flex items-center gap-4 mb-4">
-                      <span className={`px-4 py-1.5 rounded-full text-[9px] font-black uppercase ${order.status === 'Hoàn thành' ? 'bg-green-100 text-green-600' : 'bg-pink-100 text-pink-500'}`}>
+                      <span className={`px-4 py-1.5 rounded-full text-[9px] font-black uppercase ${
+                        order.status === 'Hoàn thành' ? 'bg-green-100 text-green-600' : 
+                        order.status === 'Đã hủy' ? 'bg-gray-200 text-gray-500' :
+                        order.status === 'Đang giao' ? 'bg-blue-100 text-blue-500' :
+                        'bg-pink-100 text-pink-500'
+                      }`}>
                         {order.status}
                       </span>
                       <span className="text-gray-300 text-xs">#{order.id}</span>
+                      <span className="text-gray-400 text-xs italic ml-auto md:ml-0">{new Date(order.createdAt).toLocaleDateString('vi-VN')}</span>
                     </div>
-                    <p className="text-gray-900 font-bold mb-1">Giao đến: {order.address}</p>
-                    <p className="text-gray-400 text-xs italic">Ngày: {new Date(order.createdAt).toLocaleDateString('vi-VN')}</p>
-                  </div>
-                  <div className="text-right">
-                    <p className="text-2xl font-bold text-gray-950 mb-4">{order.totalAmount?.toLocaleString()}đ</p>
-                    {order.status === "Đang giao" && (
-                      <button onClick={() => confirmReceived(order.id)} className="bg-gray-950 text-white px-8 py-3 rounded-full text-[10px] font-black uppercase tracking-widest hover:bg-pink-500 transition-all">Đã nhận hàng</button>
+                    
+                    {/* Tóm tắt sản phẩm */}
+                    {order.products && order.products.length > 0 && (
+                      <div className="mb-4 flex items-center gap-4 bg-white p-4 rounded-3xl border border-gray-100 shadow-sm">
+                        <img src={order.products[0].image || 'https://via.placeholder.com/80'} alt="thumbnail" className="size-16 object-cover rounded-2xl shadow-sm" />
+                        <div className="flex-grow">
+                          <p className="text-sm font-bold text-gray-900">{order.products[0].name}</p>
+                          <p className="text-xs font-black text-gray-400 uppercase tracking-widest mt-1">x{order.products[0].quantity}</p>
+                        </div>
+                        {order.products.length > 1 && (
+                          <div className="text-right">
+                            <p className="text-[10px] text-pink-500 font-bold bg-pink-50 px-3 py-1 rounded-full">+ {order.products.length - 1} món khác</p>
+                          </div>
+                        )}
+                      </div>
                     )}
+                    
+                    <p className="text-gray-900 font-bold mb-1 text-sm">Giao đến: {order.address}</p>
+                  </div>
+                  <div className="text-right w-full md:w-auto flex flex-row md:flex-col items-center md:items-end justify-between md:justify-center border-t md:border-t-0 border-gray-200 pt-6 md:pt-0">
+                    <p className="text-2xl font-bold text-gray-950 mb-0 md:mb-4">{order.totalAmount?.toLocaleString('vi-VN')}đ</p>
+                    <div className="flex gap-2">
+                      {order.status === "Chờ xác nhận" && (
+                        <button onClick={() => cancelOrder(order.id)} className="border-2 border-red-100 text-red-500 px-6 py-2.5 rounded-full text-[10px] font-black uppercase tracking-widest hover:bg-red-50 transition-all">Hủy đơn</button>
+                      )}
+                      {order.status === "Đang giao" && (
+                        <button onClick={() => confirmReceived(order.id)} className="bg-gray-950 text-white px-6 py-2.5 rounded-full text-[10px] font-black uppercase tracking-widest hover:bg-pink-500 transition-all shadow-xl">Đã nhận hàng</button>
+                      )}
+                      {order.status === "Hoàn thành" && (
+                        <>
+                          <button onClick={() => alert('Chức năng đánh giá đang phát triển!')} className="border-2 border-gray-200 text-gray-600 px-6 py-2.5 rounded-full text-[10px] font-black uppercase tracking-widest hover:bg-gray-100 transition-all">Đánh giá</button>
+                          <button onClick={() => alert('Chức năng mua lại đang phát triển!')} className="bg-pink-500 text-white px-6 py-2.5 rounded-full text-[10px] font-black uppercase tracking-widest hover:bg-pink-600 transition-all shadow-xl shadow-pink-500/30">Mua lại</button>
+                        </>
+                      )}
+                    </div>
                   </div>
                 </div>
-              )) : <p className="text-center py-20 font-serif italic text-gray-400">Chưa có đơn hàng nào sếp ơi.</p>}
+              )) : <p className="text-center py-20 font-serif italic text-gray-400">Không tìm thấy đơn hàng nào ở trạng thái này.</p>}
             </div>
           )}
 
@@ -222,7 +276,7 @@ const Profile = () => {
                   <div className="flex justify-between items-start mb-8">
                     <div>
                       <h3 className="text-2xl font-serif italic text-pink-500">{req.title}</h3>
-                      <p className="text-gray-400 text-[10px] font-black uppercase mt-2">Ngân sách: {req.budget?.toLocaleString()}đ</p>
+                      <p className="text-gray-400 text-[10px] font-black uppercase mt-2">Ngân sách: {req.budget?.toLocaleString('vi-VN')}đ</p>
                     </div>
                     <span className="bg-gray-950 text-white px-4 py-1.5 rounded-full text-[9px] font-black uppercase">{req.status}</span>
                   </div>
@@ -234,7 +288,7 @@ const Profile = () => {
                           <p className="text-sm text-gray-500 italic mt-1">"{bid.message}"</p>
                         </div>
                         <div className="text-right">
-                          <p className="text-xl font-serif font-bold text-pink-500">{bid.price?.toLocaleString()}đ</p>
+                          <p className="text-xl font-serif font-bold text-pink-500">{bid.price?.toLocaleString('vi-VN')}đ</p>
                           <p className="text-[9px] font-black text-gray-400 uppercase mt-1">📞 {bid.contactInfo}</p>
                         </div>
                       </div>
@@ -251,7 +305,7 @@ const Profile = () => {
                 <div key={bid.id} className="bg-gray-50 p-8 rounded-[2.5rem] border border-gray-100 relative overflow-hidden">
                   <div className="absolute top-0 right-0 bg-pink-400 text-white text-[8px] font-black px-4 py-1.5 uppercase tracking-widest">Báo giá</div>
                   <h3 className="font-bold text-gray-950 mb-2">{bid.CustomOrder?.title}</h3>
-                  <p className="text-xl font-serif font-bold text-pink-500 mb-4">{bid.price?.toLocaleString()}đ</p>
+                  <p className="text-xl font-serif font-bold text-pink-500 mb-4">{bid.price?.toLocaleString('vi-VN')}đ</p>
                   <p className="text-[9px] font-black uppercase text-gray-400">Trạng thái yêu cầu: {bid.CustomOrder?.status}</p>
                 </div>
               ))}
