@@ -31,7 +31,7 @@ const Home = () => {
             Handmade with Love
           </span>
           <h1 className="text-6xl md:text-8xl font-serif text-gray-950 tracking-tighter mb-10 leading-[1.1]">
-            Nét Đẹp <span className="text-pink-400 italic">Thủ Công</span> <br/> 
+            Nét Đẹp <span className="text-pink-400 italic">Thủ Công</span> <br />
             Trong Từng Hơi Thở
           </h1>
           <Link to="/products" className="bg-pink-400 text-white px-12 py-5 rounded-full font-bold shadow-xl shadow-pink-100 hover:bg-pink-500 transition-all inline-block uppercase text-xs tracking-widest">
@@ -54,12 +54,20 @@ const Home = () => {
             {latestProducts.map(p => (
               <Link to={`/product/${p.id}`} key={p.id} className="group text-center">
                 <div className="rounded-[3.5rem] overflow-hidden aspect-[4/5] bg-pink-50 border border-pink-100 mb-8 shadow-sm group-hover:shadow-2xl group-hover:shadow-pink-100 transition-all duration-700">
-                  <img src={p.img} alt={p.name} className="w-full h-full object-cover group-hover:scale-110 transition duration-1000" />
+                  <img
+                    src={p.img}
+                    alt={p.name}
+                    className="w-full h-full object-cover group-hover:scale-110 transition duration-1000"
+                    onError={e => {
+                      e.target.onerror = null;
+                      e.target.src = `https://ui-avatars.com/api/?name=${encodeURIComponent(p.name)}&background=fbcfe8&color=ec4899&size=400&bold=true`;
+                    }}
+                  />
                 </div>
                 <span className="text-[10px] font-black uppercase tracking-widest text-pink-400 mb-2 block">{p.category}</span>
                 <h4 className="text-2xl font-bold group-hover:text-pink-500 transition mb-2 tracking-tight">{p.name}</h4>
-                <p className="text-gray-400 font-serif italic text-xl">
-                  {new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(p.price)}
+                <p className="text-gray-500 font-semibold text-base">
+                  {p.price.toLocaleString('vi-VN')}đ
                 </p>
               </Link>
             ))}

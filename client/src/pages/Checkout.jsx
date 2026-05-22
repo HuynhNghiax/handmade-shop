@@ -44,28 +44,28 @@ const Checkout = () => {
   return (
     <div className="min-h-screen bg-pink-50/20 py-20 px-6 font-sans">
       <div className="max-w-4xl mx-auto grid grid-cols-1 lg:grid-cols-2 gap-12">
-        
+
         {/* CỘT TRÁI: NHẬP THÔNG TIN */}
         <div className="bg-white p-10 md:p-14 rounded-[3rem] shadow-xl shadow-pink-100">
           <h2 className="text-3xl font-serif mb-10 italic">Địa chỉ <span className="text-pink-400">nhận hàng</span></h2>
           <form onSubmit={handleOrder} className="space-y-6">
-            <input 
+            <input
               type="text" placeholder="Họ và tên người nhận" required
               className="w-full bg-gray-50 p-5 rounded-2xl outline-none focus:ring-2 focus:ring-pink-100 transition-all border border-transparent"
               defaultValue={user?.name}
             />
-            <input 
+            <input
               type="text" placeholder="Số điện thoại" required
               className="w-full bg-gray-50 p-5 rounded-2xl outline-none focus:ring-2 focus:ring-pink-100 transition-all border border-transparent"
-              onChange={e => setInfo({...info, phone: e.target.value})}
+              onChange={e => setInfo({ ...info, phone: e.target.value })}
             />
-            <textarea 
+            <textarea
               placeholder="Địa chỉ giao hàng chi tiết" required rows="4"
               className="w-full bg-gray-50 p-5 rounded-3xl outline-none focus:ring-2 focus:ring-pink-100 transition-all border border-transparent"
-              onChange={e => setInfo({...info, address: e.target.value})}
+              onChange={e => setInfo({ ...info, address: e.target.value })}
             ></textarea>
-            
-            <button 
+
+            <button
               disabled={loading}
               className="w-full bg-gray-950 text-white py-6 rounded-full font-black uppercase text-xs tracking-[0.2em] hover:bg-pink-400 transition-all"
             >
@@ -91,7 +91,7 @@ const Checkout = () => {
                 <span>Phí vận chuyển</span>
                 <span>30.000đ</span>
               </div>
-              <div className="flex justify-between text-2xl font-serif font-bold text-pink-500 pt-2">
+              <div className="flex justify-between text-xl font-bold text-pink-500 pt-2">
                 <span>Tổng cộng</span>
                 <span>{total.toLocaleString()}đ</span>
               </div>
@@ -99,10 +99,10 @@ const Checkout = () => {
           </div>
 
           <div className="bg-pink-400 text-white p-8 rounded-[2.5rem] flex items-center gap-4">
-             <div className="size-12 bg-white/20 rounded-full flex items-center justify-center text-2xl">📦</div>
-             <p className="text-[10px] font-bold uppercase tracking-widest leading-relaxed">
-               Thanh toán tiền mặt khi nhận hàng (COD). <br/> Kiểm tra hàng trước khi nhận.
-             </p>
+            <div className="size-12 bg-white/20 rounded-full flex items-center justify-center text-2xl">📦</div>
+            <p className="text-[10px] font-bold uppercase tracking-widest leading-relaxed">
+              Thanh toán tiền mặt khi nhận hàng (COD). <br /> Kiểm tra hàng trước khi nhận.
+            </p>
           </div>
         </div>
 

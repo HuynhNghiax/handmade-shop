@@ -3,13 +3,8 @@ import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import axios from 'axios';
 import { AuthContext } from '../context/AuthContext';
 
-/**
- * Component nút Đăng nhập Google — tách riêng để tái sử dụng.
- * (Dùng được ở cả Login lẫn Register nếu cần)
- */
 const GoogleLoginButton = () => {
   const handleGoogleLogin = () => {
-    // Redirect thẳng đến backend — passport xử lý toàn bộ OAuth flow
     window.location.href = 'http://localhost:5000/api/auth/google';
   };
 

@@ -6,7 +6,7 @@ const Cart = () => {
   const { cartItems, removeItem, updateQuantity } = useContext(CartContext);
   const navigate = useNavigate();
 
-  const formatPrice = (price) => new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(price);
+  const formatPrice = (price) => price.toLocaleString('vi-VN') + 'đ';
 
   const subtotal = cartItems.reduce((acc, item) => acc + (item.price * item.quantity), 0);
   const shipping = cartItems.length > 0 ? 30000 : 0;
@@ -14,7 +14,7 @@ const Cart = () => {
   return (
     <div className="min-h-screen bg-white font-sans text-gray-900">
       <main className="max-w-7xl mx-auto px-6 py-16 lg:py-24">
-        
+
         <div className="mb-16 border-b border-pink-50 pb-10 flex justify-between items-end">
           <div>
             <h1 className="text-5xl md:text-6xl font-serif text-gray-950 tracking-tighter">
@@ -28,13 +28,13 @@ const Cart = () => {
 
         {cartItems.length > 0 ? (
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-20">
-            
+
             {/* DANH SÁCH SẢN PHẨM */}
             <div className="lg:col-span-2 space-y-12">
               {cartItems.map((item) => (
                 <div key={item.id} className="flex flex-col sm:flex-row items-center gap-8 pb-12 border-b border-gray-50 group relative">
                   {/* Nút Xóa (Thùng rác) */}
-                  <button 
+                  <button
                     onClick={() => removeItem(item.id)}
                     className="absolute top-0 right-0 sm:relative sm:top-auto sm:right-auto p-2 text-gray-300 hover:text-red-500 transition-colors"
                     title="Xóa khỏi giỏ"
@@ -45,7 +45,15 @@ const Cart = () => {
                   </button>
 
                   <div className="size-44 rounded-[3rem] overflow-hidden bg-pink-50 border border-pink-100 flex-shrink-0 shadow-sm">
-                    <img src={item.img} alt={item.name} className="w-full h-full object-cover" />
+                    <img
+                      src={item.img}
+                      alt={item.name}
+                      className="w-full h-full object-cover"
+                      onError={e => {
+                        e.target.onerror = null;
+                        e.target.src = `https://ui-avatars.com/api/?name=${encodeURIComponent(item.name)}&background=fbcfe8&color=ec4899&size=200&bold=true`;
+                      }}
+                    />
                   </div>
 
                   <div className="flex-grow text-center sm:text-left">
@@ -61,7 +69,7 @@ const Cart = () => {
                   </div>
 
                   <div className="text-right hidden md:block w-32">
-                    <p className="font-serif font-bold text-xl text-pink-500 tracking-tighter">
+                    <p className="font-bold text-lg text-pink-500">
                       {formatPrice(item.price * item.quantity)}
                     </p>
                   </div>
@@ -85,11 +93,11 @@ const Cart = () => {
                 </div>
                 <div className="flex justify-between items-end mb-12">
                   <span className="text-[10px] font-black uppercase tracking-widest text-pink-400">Tổng cộng</span>
-                  <span className="text-4xl font-serif font-bold tracking-tighter">
+                  <span className="text-3xl font-bold">
                     {formatPrice(subtotal + shipping)}
                   </span>
                 </div>
-                <button 
+                <button
                   onClick={() => navigate('/checkout')}
                   className="w-full bg-pink-400 text-white py-6 rounded-full font-black text-xs uppercase tracking-widest hover:bg-white hover:text-gray-950 transition-all shadow-lg shadow-pink-400/20"
                 >

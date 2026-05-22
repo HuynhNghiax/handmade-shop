@@ -1,6 +1,5 @@
 @import "tailwindcss";
 @theme {
-  /* Ghi đè trực tiếp biến này để nó không dùng Times New Roman nữa */
-  --font-serif: "Cormorant Garamond", serif;
-  --font-sans: "Plus Jakarta Sans", ui-sans-serif, system-ui;
+  --font-serif: "Be Vietnam Pro", sans-serif;
+  --font-sans: "Be Vietnam Pro", ui-sans-serif, system-ui;
 }

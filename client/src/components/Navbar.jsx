@@ -14,7 +14,7 @@ const Navbar = () => {
   return (
     <header className="sticky top-0 z-[100] bg-white/80 backdrop-blur-md border-b border-pink-100 shadow-sm font-sans">
       <div className="max-w-7xl mx-auto px-6 lg:px-10 py-5 flex justify-between items-center text-gray-900">
-        
+
         {/* --- LOGO --- */}
         <Link to="/" className="text-3xl font-extrabold text-pink-500 tracking-tighter group flex items-center gap-1">
           Pinky<span className="text-gray-950 group-hover:text-pink-400 transition-colors">Crafts</span>
@@ -23,34 +23,34 @@ const Navbar = () => {
 
         {/* --- MENU ĐIỀU HƯỚNG CHÍNH --- */}
         <nav className="hidden md:flex items-center gap-8 text-[10px] font-black uppercase tracking-widest">
-          <Link 
-            to="/" 
+          <Link
+            to="/"
             className={`${isActive('/') ? 'text-pink-500' : 'text-gray-500 hover:text-pink-400'} transition-colors relative group`}
           >
             Trang chủ
             {isActive('/') && <span className="absolute -bottom-2 left-0 w-full h-0.5 bg-pink-400 rounded-full"></span>}
           </Link>
-          
-          <Link 
-            to="/products" 
+
+          <Link
+            to="/products"
             className={`${isActive('/products') ? 'text-pink-500' : 'text-gray-500 hover:text-pink-400'} transition-colors relative group`}
           >
             Sản phẩm
             {isActive('/products') && <span className="absolute -bottom-2 left-0 w-full h-0.5 bg-pink-400 rounded-full"></span>}
           </Link>
-          
-          <Link 
-            to="/custom-order" 
+
+          <Link
+            to="/custom-order"
             className={`${isActive('/custom-order') ? 'text-pink-500' : 'text-gray-500 hover:text-pink-400'} transition-colors relative group`}
           >
             Đặt gia công
             {isActive('/custom-order') && <span className="absolute -bottom-2 left-0 w-full h-0.5 bg-pink-400 rounded-full"></span>}
           </Link>
-          
+
           {/* Nút Admin - Chỉ hiện khi user là sếp */}
           {user?.isAdmin && (
-            <Link 
-              to="/admin" 
+            <Link
+              to="/admin"
               className="bg-gray-100 text-gray-900 px-4 py-1.5 rounded-full hover:bg-gray-950 hover:text-white transition-all border border-gray-200"
             >
               Quản trị
@@ -60,7 +60,7 @@ const Navbar = () => {
 
         {/* --- CỤM TIỆN ÍCH (Giỏ hàng & User) --- */}
         <div className="flex items-center gap-4 md:gap-8">
-          
+
           {/* ICON GIỎ HÀNG */}
           <Link to="/cart" className="relative p-2 group">
             <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" className="size-6 group-hover:text-pink-500 transition-all group-hover:scale-110">
@@ -83,14 +83,29 @@ const Navbar = () => {
                   <span className="text-[8px] text-gray-400 font-bold uppercase mt-0.5 tracking-widest">Hồ sơ</span>
                 </div>
                 {/* Avatar tròn với chữ cái đầu */}
-                <div className="size-9 bg-pink-100 rounded-full flex items-center justify-center text-xs font-bold text-pink-500 border-2 border-white shadow-sm group-hover:border-pink-200 transition-all">
+                {user.avatar ? (
+                  <img
+                    src={user.avatar}
+                    alt={user.name}
+                    className="size-9 rounded-full object-cover border-2 border-white shadow-sm group-hover:border-pink-200 transition-all"
+                    onError={e => {
+                      e.target.onerror = null;
+                      e.target.style.display = 'none';
+                      e.target.nextSibling.style.display = 'flex';
+                    }}
+                  />
+                ) : null}
+                <div
+                  className="size-9 bg-pink-100 rounded-full items-center justify-center text-xs font-bold text-pink-500 border-2 border-white shadow-sm group-hover:border-pink-200 transition-all"
+                  style={{ display: user.avatar ? 'none' : 'flex' }}
+                >
                   {user.name.charAt(0).toUpperCase()}
                 </div>
               </Link>
 
               {/* Nút Đăng xuất */}
-              <button 
-                onClick={logout} 
+              <button
+                onClick={logout}
                 className="size-9 rounded-full bg-gray-50 flex items-center justify-center border border-gray-100 hover:bg-red-50 hover:text-red-500 transition-all group"
                 title="Đăng xuất"
               >
@@ -101,8 +116,8 @@ const Navbar = () => {
             </div>
           ) : (
             /* Nút Đăng nhập khi chưa có user */
-            <Link 
-              to="/login" 
+            <Link
+              to="/login"
               className="bg-gray-950 text-white px-8 py-3 rounded-full text-[10px] font-bold uppercase tracking-widest hover:bg-pink-500 transition-all shadow-xl shadow-pink-100 active:scale-95"
             >
               Đăng nhập

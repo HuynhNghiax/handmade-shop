@@ -205,7 +205,7 @@ const Profile = () => {
                     <p className="text-gray-400 text-xs italic">Ngày: {new Date(order.createdAt).toLocaleDateString('vi-VN')}</p>
                   </div>
                   <div className="text-right">
-                    <p className="text-3xl font-serif font-bold text-gray-950 tracking-tighter mb-4">{order.totalAmount?.toLocaleString()}đ</p>
+                    <p className="text-2xl font-bold text-gray-950 mb-4">{order.totalAmount?.toLocaleString()}đ</p>
                     {order.status === "Đang giao" && (
                       <button onClick={() => confirmReceived(order.id)} className="bg-gray-950 text-white px-8 py-3 rounded-full text-[10px] font-black uppercase tracking-widest hover:bg-pink-500 transition-all">Đã nhận hàng</button>
                     )}

@@ -68,7 +68,7 @@ const ProductPage = () => {
   return (
     <div className="min-h-screen bg-white font-sans text-gray-900">
       <div className="max-w-7xl mx-auto px-6 py-16">
-        
+
         {/* HEADER & SEARCH SECTION */}
         <div className="flex flex-col md:flex-row justify-between items-end gap-8 mb-16 border-b pb-12 border-pink-50">
           <div>
@@ -77,12 +77,12 @@ const ProductPage = () => {
             </h1>
             <p className="text-gray-400 text-xs font-bold tracking-widest uppercase">Gói trọn yêu thương trong từng món quà</p>
           </div>
-          
+
           <div className="w-full max-w-md space-y-4">
             <div className="relative">
-              <input 
-                type="text" 
-                placeholder="Tìm món đồ bạn yêu thích..." 
+              <input
+                type="text"
+                placeholder="Tìm món đồ bạn yêu thích..."
                 className="bg-gray-50 px-8 py-4 rounded-2xl w-full outline-none focus:ring-2 focus:ring-pink-100 transition-all tracking-tight text-sm border border-gray-100"
                 onChange={(e) => setSearchTerm(e.target.value)}
               />
@@ -91,7 +91,7 @@ const ProductPage = () => {
 
             <div className="flex items-center justify-end gap-3">
               <label className="text-[10px] font-black uppercase tracking-tight text-gray-400">Sắp xếp:</label>
-              <select 
+              <select
                 value={sortOption}
                 onChange={(e) => setSortOption(e.target.value)}
                 className="bg-white border border-gray-200 text-xs font-bold rounded-xl px-4 py-2 outline-none cursor-pointer"
@@ -105,7 +105,7 @@ const ProductPage = () => {
         </div>
 
         <div className="flex flex-col lg:flex-row gap-16">
-          
+
           {/* SIDEBAR CATEGORIES */}
           <aside className="w-full lg:w-64 flex-shrink-0">
             <div className="sticky top-32">
@@ -117,11 +117,10 @@ const ProductPage = () => {
                   <li key={cat}>
                     <button
                       onClick={() => setSelectedCategory(cat)}
-                      className={`w-full text-left px-6 py-4 rounded-2xl text-sm font-bold transition-all duration-300 tracking-tight ${
-                        selectedCategory === cat 
-                        ? "bg-gray-950 text-white shadow-xl shadow-gray-200" 
+                      className={`w-full text-left px-6 py-4 rounded-2xl text-sm font-bold transition-all duration-300 tracking-tight ${selectedCategory === cat
+                        ? "bg-gray-950 text-white shadow-xl shadow-gray-200"
                         : "text-gray-500 hover:bg-pink-50 hover:text-pink-500"
-                      }`}
+                        }`}
                     >
                       {cat}
                     </button>
@@ -143,10 +142,14 @@ const ProductPage = () => {
                   {currentItems.map(p => (
                     <Link to={`/product/${p.id}`} key={p.id} className="group">
                       <div className="aspect-[4/5] rounded-[2.5rem] overflow-hidden bg-gray-50 border border-gray-50 group-hover:border-pink-100 transition-all duration-500 mb-5 relative shadow-sm group-hover:shadow-xl">
-                        <img 
-                          src={p.img} 
-                          alt={p.name} 
-                          className="w-full h-full object-cover group-hover:scale-110 transition duration-1000" 
+                        <img
+                          src={p.img}
+                          alt={p.name}
+                          className="w-full h-full object-cover group-hover:scale-110 transition duration-1000"
+                          onError={e => {
+                            e.target.onerror = null;
+                            e.target.src = `https://ui-avatars.com/api/?name=${encodeURIComponent(p.name)}&background=fbcfe8&color=ec4899&size=400&bold=true`;
+                          }}
                         />
                       </div>
                       <div className="px-1">
@@ -154,8 +157,8 @@ const ProductPage = () => {
                         <h3 className="font-bold text-gray-900 group-hover:text-pink-500 transition-colors truncate tracking-tight text-base mb-1">
                           {p.name}
                         </h3>
-                        <p className="font-serif italic text-gray-500 text-lg">
-                          {new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(p.price)}
+                        <p className="font-semibold text-gray-500 text-base">
+                          {p.price.toLocaleString('vi-VN')}đ
                         </p>
                       </div>
                     </Link>
@@ -165,29 +168,28 @@ const ProductPage = () => {
                 {/* PAGINATION CONTROLS */}
                 {totalPages > 1 && (
                   <div className="mt-20 flex justify-center items-center gap-2">
-                    <button 
+                    <button
                       onClick={() => setCurrentPage(prev => Math.max(prev - 1, 1))}
                       disabled={currentPage === 1}
                       className={`size-12 rounded-full border flex items-center justify-center transition-all ${currentPage === 1 ? 'opacity-20 cursor-not-allowed' : 'hover:bg-pink-50 border-gray-200'}`}
                     >
                       ←
                     </button>
-                    
+
                     {[...Array(totalPages)].map((_, i) => (
                       <button
                         key={i + 1}
                         onClick={() => setCurrentPage(i + 1)}
-                        className={`size-12 rounded-full text-xs font-bold transition-all ${
-                          currentPage === i + 1 
-                          ? "bg-pink-400 text-white shadow-lg shadow-pink-100" 
+                        className={`size-12 rounded-full text-xs font-bold transition-all ${currentPage === i + 1
+                          ? "bg-pink-400 text-white shadow-lg shadow-pink-100"
                           : "hover:bg-gray-50 text-gray-400"
-                        }`}
+                          }`}
                       >
                         {i + 1}
                       </button>
                     ))}
 
-                    <button 
+                    <button
                       onClick={() => setCurrentPage(prev => Math.min(prev + 1, totalPages))}
                       disabled={currentPage === totalPages}
                       className={`size-12 rounded-full border flex items-center justify-center transition-all ${currentPage === totalPages ? 'opacity-20 cursor-not-allowed' : 'hover:bg-pink-50 border-gray-200'}`}

@@ -57,7 +57,7 @@ const CustomOrder = () => {
             <h1 className="text-5xl font-serif italic tracking-tighter">Đặt gia công <span className="text-pink-400">theo ý thích</span></h1>
             <p className="text-gray-400 mt-2 font-light">Nơi kết nối những ý tưởng độc đáo và những bàn tay khéo léo</p>
           </div>
-          <button 
+          <button
             onClick={() => setShowForm(true)}
             className="bg-gray-950 text-white px-8 py-4 rounded-full font-black text-[10px] uppercase tracking-widest hover:bg-pink-400 transition-all shadow-xl shadow-gray-200"
           >
@@ -73,11 +73,11 @@ const CustomOrder = () => {
               </span>
               <h3 className="text-2xl font-serif italic mb-4 text-gray-900">{order.title}</h3>
               <p className="text-gray-500 font-light mb-8 line-clamp-3 leading-relaxed">{order.description}</p>
-              
+
               <div className="flex justify-between items-center pt-8 border-t border-gray-200">
                 <div className="flex flex-col">
-                   <span className="text-[10px] text-gray-400 uppercase font-bold mb-1">Ngân sách</span>
-                   <span className="font-serif text-xl text-pink-500 font-bold">{order.budget?.toLocaleString()}đ</span>
+                  <span className="text-[10px] text-gray-400 uppercase font-bold mb-1">Ngân sách</span>
+                  <span className="font-bold text-base text-pink-500">{order.budget?.toLocaleString()}đ</span>
                 </div>
 
                 {/* LOGIC CHẶN NÚT BÁO GIÁ Ở ĐÂY */}
@@ -86,7 +86,7 @@ const CustomOrder = () => {
                     Yêu cầu của bạn
                   </span>
                 ) : (
-                  <button 
+                  <button
                     onClick={() => setSelectedOrderId(order.id)}
                     className="bg-white px-8 py-3 rounded-full border border-gray-200 text-[10px] font-black uppercase hover:bg-gray-950 hover:text-white transition-all shadow-sm"
                   >
@@ -103,9 +103,9 @@ const CustomOrder = () => {
           <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-[200] flex items-center justify-center p-6">
             <form onSubmit={handlePostRequest} className="bg-white w-full max-w-xl rounded-[4rem] p-14 space-y-4 shadow-2xl">
               <h3 className="text-3xl font-serif italic mb-6">Bạn muốn làm món đồ gì?</h3>
-              <input type="text" placeholder="Tên sản phẩm (VD: Túi len hình mèo)" className="w-full bg-gray-50 p-5 rounded-2xl outline-none border border-transparent focus:border-pink-200" onChange={e => setNewRequest({...newRequest, title: e.target.value})} required />
-              <textarea placeholder="Mô tả chi tiết yêu cầu của bạn..." className="w-full bg-gray-50 p-5 rounded-3xl outline-none border border-transparent focus:border-pink-200" rows="4" onChange={e => setNewRequest({...newRequest, description: e.target.value})} required></textarea>
-              <input type="number" placeholder="Ngân sách dự kiến (VNĐ)" className="w-full bg-gray-50 p-5 rounded-2xl outline-none border border-transparent focus:border-pink-200" onChange={e => setNewRequest({...newRequest, budget: e.target.value})} required />
+              <input type="text" placeholder="Tên sản phẩm (VD: Túi len hình mèo)" className="w-full bg-gray-50 p-5 rounded-2xl outline-none border border-transparent focus:border-pink-200" onChange={e => setNewRequest({ ...newRequest, title: e.target.value })} required />
+              <textarea placeholder="Mô tả chi tiết yêu cầu của bạn..." className="w-full bg-gray-50 p-5 rounded-3xl outline-none border border-transparent focus:border-pink-200" rows="4" onChange={e => setNewRequest({ ...newRequest, description: e.target.value })} required></textarea>
+              <input type="number" placeholder="Ngân sách dự kiến (VNĐ)" className="w-full bg-gray-50 p-5 rounded-2xl outline-none border border-transparent focus:border-pink-200" onChange={e => setNewRequest({ ...newRequest, budget: e.target.value })} required />
               <div className="flex gap-4 pt-6">
                 <button type="submit" className="flex-1 bg-pink-400 text-white py-5 rounded-full font-bold shadow-lg shadow-pink-100 hover:bg-pink-500 transition-all">Đăng yêu cầu</button>
                 <button type="button" onClick={() => setShowForm(false)} className="flex-1 bg-gray-100 py-5 rounded-full font-bold hover:bg-gray-200 transition-all">Hủy</button>
@@ -119,9 +119,9 @@ const CustomOrder = () => {
           <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-[200] flex items-center justify-center p-6">
             <form onSubmit={handleSendBid} className="bg-white w-full max-w-lg rounded-[3rem] p-12 space-y-4 shadow-2xl">
               <h3 className="text-2xl font-serif italic mb-6 text-pink-400">Báo giá của bạn</h3>
-              <input type="number" placeholder="Giá bạn đưa ra (VNĐ)" className="w-full bg-gray-50 p-5 rounded-2xl outline-none border border-transparent focus:border-pink-200" onChange={e => setBidData({...bidData, price: e.target.value})} required />
-              <textarea placeholder="Lời nhắn gửi đến khách hàng (Thời gian làm, chất liệu...)" className="w-full bg-gray-50 p-5 rounded-2xl outline-none border border-transparent focus:border-pink-200" rows="3" onChange={e => setBidData({...bidData, message: e.target.value})} required></textarea>
-              <input type="text" placeholder="Số điện thoại hoặc Zalo liên hệ" className="w-full bg-gray-50 p-5 rounded-2xl outline-none border border-transparent focus:border-pink-200" onChange={e => setBidData({...bidData, contactInfo: e.target.value})} required />
+              <input type="number" placeholder="Giá bạn đưa ra (VNĐ)" className="w-full bg-gray-50 p-5 rounded-2xl outline-none border border-transparent focus:border-pink-200" onChange={e => setBidData({ ...bidData, price: e.target.value })} required />
+              <textarea placeholder="Lời nhắn gửi đến khách hàng (Thời gian làm, chất liệu...)" className="w-full bg-gray-50 p-5 rounded-2xl outline-none border border-transparent focus:border-pink-200" rows="3" onChange={e => setBidData({ ...bidData, message: e.target.value })} required></textarea>
+              <input type="text" placeholder="Số điện thoại hoặc Zalo liên hệ" className="w-full bg-gray-50 p-5 rounded-2xl outline-none border border-transparent focus:border-pink-200" onChange={e => setBidData({ ...bidData, contactInfo: e.target.value })} required />
               <div className="flex gap-4 pt-6">
                 <button type="submit" className="flex-1 bg-gray-950 text-white py-4 rounded-full font-black uppercase text-[10px] tracking-widest hover:bg-pink-500 transition-all shadow-xl shadow-pink-100">Gửi báo giá</button>
                 <button type="button" onClick={() => setSelectedOrderId(null)} className="flex-1 bg-gray-100 py-4 rounded-full font-bold uppercase text-[10px] tracking-widest">Đóng</button>
