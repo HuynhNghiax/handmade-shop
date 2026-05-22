@@ -43,4 +43,22 @@ router.put('/:id/confirm', verifyToken, async (req, res) => {
     } catch (err) { res.status(500).json(err); }
 });
 
+// 5. KHÁCH HÀNG HỦY ĐƠN HÀNG
+router.put('/:id/cancel', verifyToken, async (req, res) => {
+    try {
+        const order = await Order.findOne({ where: { id: req.params.id, userId: req.user.id } });
+        if (!order) return res.status(404).json("Không tìm thấy đơn hàng");
+        
+        // Chỉ cho phép hủy khi đơn đang ở trạng thái "Chờ xác nhận"
+        if (order.status !== "Chờ xác nhận") {
+            return res.status(400).json("Chỉ có thể hủy đơn hàng khi đang chờ xác nhận.");
+        }
+        
+        order.status = "Đã hủy";
+        await order.save();
+        
+        res.status(200).json("Hủy đơn hàng thành công!");
+    } catch (err) { res.status(500).json(err); }
+});
+
 module.exports = router;
