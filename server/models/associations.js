@@ -1,22 +1,65 @@
-const User = require('./User');
-const Order = require('./Order');
-const CustomOrder = require('./CustomOrder');
-const Bid = require('./Bid');
+const User = require("./User");
+const Order = require("./Order");
+const CustomOrder = require("./CustomOrder");
+const Bid = require("./Bid");
+const MakerProfile = require("./MakerProfile");
+const Review = require("./Review");
 
-// User and Order
-User.hasMany(Order, { foreignKey: 'userId' });
-Order.belongsTo(User, { foreignKey: 'userId' });
+//  User - Order
+User.hasMany(Order, { foreignKey: "userId" });
+Order.belongsTo(User, { foreignKey: "userId" });
 
-// User and CustomOrder
-User.hasMany(CustomOrder, { foreignKey: 'userId' });
-CustomOrder.belongsTo(User, { foreignKey: 'userId' });
+//  User - CustomOrder
+User.hasMany(CustomOrder, { foreignKey: "userId", as: "CustomOrders" });
+CustomOrder.belongsTo(User, { foreignKey: "userId", as: "Customer" });
 
-// CustomOrder and Bid
-CustomOrder.hasMany(Bid, { foreignKey: 'customOrderId' });
-Bid.belongsTo(CustomOrder, { foreignKey: 'customOrderId' });
+// Thợ thực hiện đơn (makerId)
+User.hasMany(CustomOrder, { foreignKey: "makerId", as: "AssignedOrders" });
+CustomOrder.belongsTo(User, { foreignKey: "makerId", as: "Maker" });
 
-// User and Bid (User is the maker)
-User.hasMany(Bid, { foreignKey: 'makerId' });
-Bid.belongsTo(User, { foreignKey: 'makerId' });
+//  User - MakerProfile (1-1)
+User.hasOne(MakerProfile, { foreignKey: "userId", as: "MakerProfile" });
+MakerProfile.belongsTo(User, { foreignKey: "userId", as: "User" });
 
-module.exports = { User, Order, CustomOrder, Bid };
+//  User - Bid
+User.hasMany(Bid, { foreignKey: "makerId", as: "SentBids" });
+Bid.belongsTo(User, { foreignKey: "makerId", as: "MakerUser" });
+
+//  CustomOrder - Bid
+CustomOrder.hasMany(Bid, { foreignKey: "customOrderId", as: "Bids" });
+Bid.belongsTo(CustomOrder, { foreignKey: "customOrderId", as: "CustomOrder" });
+
+// Bid được chấp nhận (acceptedBidId)
+CustomOrder.belongsTo(Bid, {
+  foreignKey: "acceptedBidId",
+  as: "AcceptedBid",
+  constraints: false,
+});
+
+//  MakerProfile - Bid
+MakerProfile.hasMany(Bid, { foreignKey: "makerId", as: "MakerBids" });
+Bid.belongsTo(MakerProfile, {
+  foreignKey: "makerId",
+  as: "MakerProfile",
+  constraints: false,
+});
+
+//  Review relationships
+CustomOrder.hasOne(Review, { foreignKey: "customOrderId", as: "Review" });
+Review.belongsTo(CustomOrder, {
+  foreignKey: "customOrderId",
+  as: "CustomOrder",
+});
+
+MakerProfile.hasMany(Review, { foreignKey: "makerId", as: "Reviews" });
+Review.belongsTo(MakerProfile, {
+  foreignKey: "makerId",
+  as: "MakerProfile",
+  constraints: false,
+});
+
+// Reviewer (khách hàng đánh giá)
+User.hasMany(Review, { foreignKey: "reviewerId", as: "GivenReviews" });
+Review.belongsTo(User, { foreignKey: "reviewerId", as: "Reviewer" });
+
+module.exports = { User, Order, CustomOrder, Bid, MakerProfile, Review };

@@ -8,62 +8,63 @@ const Navbar = () => {
   const { user, logout } = useContext(AuthContext);
   const { cartCount } = useContext(CartContext);
 
-  // Hàm kiểm tra xem trang nào đang active để tô màu hồng
-  const isActive = (path) => location.pathname === path;
+  const isActive = (path) => location.pathname === path || location.pathname.startsWith(path + '/');
+
+  const navLink = (to, label) => (
+    <Link
+      to={to}
+      className={`${isActive(to) ? 'text-pink-500' : 'text-gray-500 hover:text-pink-400'} transition-colors relative`}
+    >
+      {label}
+      {isActive(to) && <span className="absolute -bottom-2 left-0 w-full h-0.5 bg-pink-400 rounded-full" />}
+    </Link>
+  );
 
   return (
     <header className="sticky top-0 z-[100] bg-white/80 backdrop-blur-md border-b border-pink-100 shadow-sm font-sans">
       <div className="max-w-7xl mx-auto px-6 lg:px-10 py-5 flex justify-between items-center text-gray-900">
 
-        {/* --- LOGO --- */}
+        {/* LOGO */}
         <Link to="/" className="text-3xl font-extrabold text-pink-500 tracking-tighter group flex items-center gap-1">
           Pinky<span className="text-gray-950 group-hover:text-pink-400 transition-colors">Crafts</span>
-          <span className="size-1.5 bg-pink-400 rounded-full mt-2 animate-pulse"></span>
+          <span className="size-1.5 bg-pink-400 rounded-full mt-2 animate-pulse" />
         </Link>
 
-        {/* --- MENU ĐIỀU HƯỚNG CHÍNH --- */}
+        {/* NAV CHÍNH */}
         <nav className="hidden md:flex items-center gap-8 text-[10px] font-black uppercase tracking-widest">
-          <Link
-            to="/"
-            className={`${isActive('/') ? 'text-pink-500' : 'text-gray-500 hover:text-pink-400'} transition-colors relative group`}
-          >
-            Trang chủ
-            {isActive('/') && <span className="absolute -bottom-2 left-0 w-full h-0.5 bg-pink-400 rounded-full"></span>}
-          </Link>
+          {navLink('/', 'Trang chủ')}
+          {navLink('/products', 'Sản phẩm')}
+          {navLink('/custom-order', 'Đặt gia công')}
+          {navLink('/makers', 'Danh sách thợ')}
 
-          <Link
-            to="/products"
-            className={`${isActive('/products') ? 'text-pink-500' : 'text-gray-500 hover:text-pink-400'} transition-colors relative group`}
-          >
-            Sản phẩm
-            {isActive('/products') && <span className="absolute -bottom-2 left-0 w-full h-0.5 bg-pink-400 rounded-full"></span>}
-          </Link>
-
-          <Link
-            to="/custom-order"
-            className={`${isActive('/custom-order') ? 'text-pink-500' : 'text-gray-500 hover:text-pink-400'} transition-colors relative group`}
-          >
-            Đặt gia công
-            {isActive('/custom-order') && <span className="absolute -bottom-2 left-0 w-full h-0.5 bg-pink-400 rounded-full"></span>}
-          </Link>
-
-          {/* Nút Admin - Chỉ hiện khi user là sếp */}
           {user?.isAdmin && (
-            <Link
-              to="/admin"
-              className="bg-gray-100 text-gray-900 px-4 py-1.5 rounded-full hover:bg-gray-950 hover:text-white transition-all border border-gray-200"
-            >
+            <Link to="/admin" className="bg-gray-100 text-gray-900 px-4 py-1.5 rounded-full hover:bg-gray-950 hover:text-white transition-all border border-gray-200">
               Quản trị
             </Link>
           )}
         </nav>
 
-        {/* --- CỤM TIỆN ÍCH (Giỏ hàng & User) --- */}
-        <div className="flex items-center gap-4 md:gap-8">
+        {/* TIỆN ÍCH */}
+        <div className="flex items-center gap-4 md:gap-6">
 
-          {/* ICON GIỎ HÀNG */}
+          {/* Nút "Trở thành thợ" — hiện khi đã login và chưa là thợ được duyệt */}
+          {user && !user.isAdmin && (
+            <Link
+              to="/become-maker"
+              className={`hidden md:block text-[9px] font-black uppercase tracking-widest px-4 py-2 rounded-full transition-all border
+                ${user.isMaker
+                  ? 'border-pink-200 text-pink-500 bg-pink-50 hover:bg-pink-100'
+                  : 'border-gray-200 text-gray-500 hover:border-pink-300 hover:text-pink-500'
+                }`}
+            >
+              {user.isMaker ? '🧶 Hồ sơ thợ' : '+ Trở thành thợ'}
+            </Link>
+          )}
+
+          {/* GIỎ HÀNG */}
           <Link to="/cart" className="relative p-2 group">
-            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" className="size-6 group-hover:text-pink-500 transition-all group-hover:scale-110">
+            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor"
+              className="size-6 group-hover:text-pink-500 transition-all group-hover:scale-110">
               <path strokeLinecap="round" strokeLinejoin="round" d="M15.75 10.5V6a3.75 3.75 0 1 0-7.5 0v4.5m11.356-1.993 1.263 12c.07.665-.45 1.243-1.119 1.243H4.25a1.125 1.125 0 0 1-1.119-1.243l1.263-12c.078-.744.704-1.293 1.45-1.293h12.295c.746 0 1.372.549 1.45 1.293Z" />
             </svg>
             <span className="absolute top-0 right-0 bg-pink-500 text-white text-[9px] font-bold size-5 flex items-center justify-center rounded-full border-2 border-white shadow-sm group-hover:animate-bounce">
@@ -71,10 +72,9 @@ const Navbar = () => {
             </span>
           </Link>
 
-          {/* PHẦN NGƯỜI DÙNG */}
+          {/* USER / LOGIN */}
           {user ? (
             <div className="flex items-center gap-4 pl-4 border-l border-gray-100">
-              {/* Link vào trang Profile */}
               <Link to="/profile" className="flex items-center gap-3 group">
                 <div className="flex flex-col items-end leading-none">
                   <span className="text-[10px] font-black uppercase tracking-tight text-gray-950 group-hover:text-pink-500 transition-colors">
@@ -82,17 +82,12 @@ const Navbar = () => {
                   </span>
                   <span className="text-[8px] text-gray-400 font-bold uppercase mt-0.5 tracking-widest">Hồ sơ</span>
                 </div>
-                {/* Avatar tròn với chữ cái đầu */}
                 {user.avatar ? (
                   <img
                     src={user.avatar}
                     alt={user.name}
                     className="size-9 rounded-full object-cover border-2 border-white shadow-sm group-hover:border-pink-200 transition-all"
-                    onError={e => {
-                      e.target.onerror = null;
-                      e.target.style.display = 'none';
-                      e.target.nextSibling.style.display = 'flex';
-                    }}
+                    onError={e => { e.target.onerror = null; e.target.style.display = 'none'; e.target.nextSibling.style.display = 'flex'; }}
                   />
                 ) : null}
                 <div
@@ -102,8 +97,6 @@ const Navbar = () => {
                   {user.name.charAt(0).toUpperCase()}
                 </div>
               </Link>
-
-              {/* Nút Đăng xuất */}
               <button
                 onClick={logout}
                 className="size-9 rounded-full bg-gray-50 flex items-center justify-center border border-gray-100 hover:bg-red-50 hover:text-red-500 transition-all group"
@@ -115,11 +108,7 @@ const Navbar = () => {
               </button>
             </div>
           ) : (
-            /* Nút Đăng nhập khi chưa có user */
-            <Link
-              to="/login"
-              className="bg-gray-950 text-white px-8 py-3 rounded-full text-[10px] font-bold uppercase tracking-widest hover:bg-pink-500 transition-all shadow-xl shadow-pink-100 active:scale-95"
-            >
+            <Link to="/login" className="bg-gray-950 text-white px-8 py-3 rounded-full text-[10px] font-bold uppercase tracking-widest hover:bg-pink-500 transition-all shadow-xl shadow-pink-100 active:scale-95">
               Đăng nhập
             </Link>
           )}
