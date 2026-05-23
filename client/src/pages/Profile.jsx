@@ -212,23 +212,22 @@ const Profile = () => {
                   <button key={f} onClick={() => setOrderFilter(f)} className={`px-4 py-2 rounded-full text-[10px] font-bold uppercase transition-all ${orderFilter === f ? 'bg-pink-500 text-white shadow-md' : 'bg-gray-100 text-gray-500 hover:bg-pink-50'}`}>{f}</button>
                 ))}
               </div>
-              
+
               {data.myOrders.filter(o => orderFilter === 'Tất cả' || o.status === orderFilter).length > 0 ? data.myOrders.filter(o => orderFilter === 'Tất cả' || o.status === orderFilter).map(order => (
                 <div key={order.id} className="bg-gray-50 p-8 md:p-10 rounded-[3rem] border border-gray-100 flex flex-col md:flex-row justify-between items-center gap-8 shadow-sm">
                   <div className="flex-grow w-full md:w-auto">
                     <div className="flex items-center gap-4 mb-4">
-                      <span className={`px-4 py-1.5 rounded-full text-[9px] font-black uppercase ${
-                        order.status === 'Hoàn thành' ? 'bg-green-100 text-green-600' : 
+                      <span className={`px-4 py-1.5 rounded-full text-[9px] font-black uppercase ${order.status === 'Hoàn thành' ? 'bg-green-100 text-green-600' :
                         order.status === 'Đã hủy' ? 'bg-gray-200 text-gray-500' :
-                        order.status === 'Đang giao' ? 'bg-blue-100 text-blue-500' :
-                        'bg-pink-100 text-pink-500'
-                      }`}>
+                          order.status === 'Đang giao' ? 'bg-blue-100 text-blue-500' :
+                            'bg-pink-100 text-pink-500'
+                        }`}>
                         {order.status}
                       </span>
                       <span className="text-gray-300 text-xs">#{order.id}</span>
                       <span className="text-gray-400 text-xs italic ml-auto md:ml-0">{new Date(order.createdAt).toLocaleDateString('vi-VN')}</span>
                     </div>
-                    
+
                     {/* Tóm tắt sản phẩm */}
                     {order.products && order.products.length > 0 && (
                       <div className="mb-4 flex items-center gap-4 bg-white p-4 rounded-3xl border border-gray-100 shadow-sm">
@@ -244,7 +243,7 @@ const Profile = () => {
                         )}
                       </div>
                     )}
-                    
+
                     <p className="text-gray-900 font-bold mb-1 text-sm">Giao đến: {order.address}</p>
                   </div>
                   <div className="text-right w-full md:w-auto flex flex-row md:flex-col items-center md:items-end justify-between md:justify-center border-t md:border-t-0 border-gray-200 pt-6 md:pt-0">
@@ -300,15 +299,79 @@ const Profile = () => {
           )}
 
           {tab === 'bids' && (
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-              {data.myBids.map(bid => (
-                <div key={bid.id} className="bg-gray-50 p-8 rounded-[2.5rem] border border-gray-100 relative overflow-hidden">
-                  <div className="absolute top-0 right-0 bg-pink-400 text-white text-[8px] font-black px-4 py-1.5 uppercase tracking-widest">Báo giá</div>
-                  <h3 className="font-bold text-gray-950 mb-2">{bid.CustomOrder?.title}</h3>
-                  <p className="text-xl font-serif font-bold text-pink-500 mb-4">{bid.price?.toLocaleString('vi-VN')}đ</p>
-                  <p className="text-[9px] font-black uppercase text-gray-400">Trạng thái yêu cầu: {bid.CustomOrder?.status}</p>
-                </div>
-              ))}
+            <div className="space-y-4">
+              {data.myBids.length === 0 && (
+                <p className="text-center py-20 font-serif italic text-gray-400">
+                  Bạn chưa gửi báo giá nào.
+                </p>
+              )}
+              {data.myBids.map(bid => {
+                const order = bid.CustomOrder;
+                const isAccepted = order?.acceptedBidId === bid.id;
+                const isWaiting = order?.status === 'Đang tìm thợ';
+
+                return (
+                  <div
+                    key={bid.id}
+                    className={`relative rounded-[2.5rem] border-2 overflow-hidden transition-all
+                      ${isAccepted
+                        ? 'border-green-300 bg-green-50 shadow-lg shadow-green-100'
+                        : isWaiting
+                          ? 'border-gray-100 bg-gray-50'
+                          : 'border-gray-100 bg-white opacity-70'
+                      }`}
+                  >
+                    {/* Banner khi được chọn */}
+                    {isAccepted && (
+                      <div className="bg-green-500 text-white px-6 py-2 flex items-center gap-2">
+                        <span className="text-sm">🎉</span>
+                        <span className="text-[10px] font-black uppercase tracking-widest">
+                          Báo giá của bạn được chọn! Hãy vào đơn để bắt đầu thực hiện.
+                        </span>
+                      </div>
+                    )}
+
+                    <div className="p-8 flex items-center justify-between gap-6">
+                      <div className="flex-1">
+                        <div className="flex items-center gap-3 mb-2">
+                          <h3 className="font-bold text-gray-950">{order?.title}</h3>
+                          <span className={`text-[9px] font-black px-3 py-1 rounded-full uppercase
+                            ${isAccepted ? 'bg-green-100 text-green-700' :
+                              isWaiting ? 'bg-yellow-100 text-yellow-700' :
+                                order?.status === 'Hoàn thành' ? 'bg-gray-100 text-gray-500' :
+                                  'bg-blue-100 text-blue-700'}`}
+                          >
+                            {order?.status}
+                          </span>
+                        </div>
+                        <p className="text-xl font-serif font-bold text-pink-500 mb-1">
+                          {bid.price?.toLocaleString('vi-VN')}đ
+                        </p>
+                        <p className="text-xs text-gray-400 italic">
+                          {isAccepted
+                            ? 'Khách hàng đã chọn bạn — bấm vào đây để xem đơn và bắt đầu!'
+                            : isWaiting
+                              ? 'Đang chờ khách hàng xem xét...'
+                              : 'Đơn này đã có thợ khác được chọn hoặc đã hoàn thành.'}
+                        </p>
+                      </div>
+
+                      {/* Nút vào đơn */}
+                      {(isAccepted || order?.status === 'Đang thực hiện' || order?.status === 'Chờ xác nhận') && (
+                        <a
+                          href={`/custom-order/${order?.id}`}
+                          className={`flex-shrink-0 px-6 py-3 rounded-full text-[10px] font-black uppercase tracking-widest transition-all shadow-xl
+                            ${isAccepted
+                              ? 'bg-green-500 text-white hover:bg-green-600 animate-pulse'
+                              : 'bg-gray-950 text-white hover:bg-pink-500'}`}
+                        >
+                          {isAccepted ? 'Vào đơn ngay →' : 'Xem tiến trình →'}
+                        </a>
+                      )}
+                    </div>
+                  </div>
+                );
+              })}
             </div>
           )}
 

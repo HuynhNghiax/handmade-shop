@@ -4,6 +4,7 @@ const User = require("../models/User");
 const MakerProfile = require("../models/MakerProfile");
 const Review = require("../models/Review");
 const { verifyToken, verifyAdmin } = require("../middleware/authMiddleware");
+const mailer = require("../utils/mailer");
 
 const recalculateMakerRating = async (makerId) => {
   const reviews = await Review.findAll({ where: { makerId } });
@@ -15,20 +16,12 @@ const recalculateMakerRating = async (makerId) => {
   );
 };
 
-//  PUBLIC ROUTES
-
-/**
- * GET /api/makers
- * Danh sách tất cả thợ đã được duyệt (public)
- */
+//  PUBLIC: DANH SÁCH THỢ
 router.get("/", async (req, res) => {
   try {
     const { skills, sort } = req.query;
-
     const where = { status: "da_duyet" };
-    if (skills) {
-      where.skills = { [Op.iLike]: `%${skills}%` };
-    }
+    if (skills) where.skills = { [Op.iLike]: `%${skills}%` };
 
     const order = [];
     if (sort === "rating") order.push(["rating", "DESC"]);
@@ -41,7 +34,6 @@ router.get("/", async (req, res) => {
         { model: User, as: "User", attributes: ["name", "avatar", "id"] },
       ],
     });
-
     res.json(makers);
   } catch (err) {
     res
@@ -50,10 +42,22 @@ router.get("/", async (req, res) => {
   }
 });
 
-/**
- * GET /api/makers/:id
- * Hồ sơ thợ công khai + reviews gần nhất (public)
- */
+//  PROTECTED: XEM HỒ SƠ CỦA CHÍNH MÌNH
+//  PHẢI ĐẶT TRƯỚC GET /:id — nếu không "my-profile" sẽ bị /:id chặn mất
+router.get("/my-profile", verifyToken, async (req, res) => {
+  try {
+    const profile = await MakerProfile.findOne({
+      where: { userId: req.user.id },
+      include: [{ model: User, as: "User", attributes: ["name", "avatar"] }],
+    });
+    if (!profile) return res.status(404).json({ message: "Chưa có hồ sơ thợ" });
+    res.json(profile);
+  } catch (err) {
+    res.status(500).json({ message: "Lỗi lấy hồ sơ", error: err.message });
+  }
+});
+
+//  PUBLIC: HỒ SƠ THỢ THEO ID
 router.get("/:id", async (req, res) => {
   try {
     const maker = await MakerProfile.findByPk(req.params.id, {
@@ -70,7 +74,6 @@ router.get("/:id", async (req, res) => {
         },
       ],
     });
-
     if (!maker)
       return res.status(404).json({ message: "Không tìm thấy hồ sơ thợ" });
     res.json(maker);
@@ -79,15 +82,9 @@ router.get("/:id", async (req, res) => {
   }
 });
 
-//  PROTECTED: USER
-
-/**
- * POST /api/makers/register
- * Đăng ký làm thợ
- */
+//  PROTECTED: ĐĂNG KÝ LÀM THỢ
 router.post("/register", verifyToken, async (req, res) => {
   try {
-    // Kiểm tra đã có hồ sơ chưa
     const existing = await MakerProfile.findOne({
       where: { userId: req.user.id },
     });
@@ -98,7 +95,6 @@ router.post("/register", verifyToken, async (req, res) => {
     }
 
     const { bio, skills, portfolio } = req.body;
-
     const profile = await MakerProfile.create({
       userId: req.user.id,
       bio,
@@ -106,8 +102,6 @@ router.post("/register", verifyToken, async (req, res) => {
       portfolio: portfolio || [],
       status: "cho_duyet",
     });
-
-    // Cập nhật flag isMaker trên User
     await User.update({ isMaker: true }, { where: { id: req.user.id } });
 
     res.status(201).json({
@@ -119,10 +113,7 @@ router.post("/register", verifyToken, async (req, res) => {
   }
 });
 
-/**
- * PUT /api/makers/my-profile
- * Thợ tự cập nhật bio / skills / portfolio
- */
+//  PROTECTED: CẬP NHẬT HỒ SƠ
 router.put("/my-profile", verifyToken, async (req, res) => {
   try {
     const profile = await MakerProfile.findOne({
@@ -143,29 +134,7 @@ router.put("/my-profile", verifyToken, async (req, res) => {
   }
 });
 
-/**
- * GET /api/makers/my-profile
- * Thợ xem hồ sơ của chính mình (kể cả khi chưa được duyệt)
- */
-router.get("/my-profile", verifyToken, async (req, res) => {
-  try {
-    const profile = await MakerProfile.findOne({
-      where: { userId: req.user.id },
-      include: [{ model: User, as: "User", attributes: ["name", "avatar"] }],
-    });
-    if (!profile) return res.status(404).json({ message: "Chưa có hồ sơ thợ" });
-    res.json(profile);
-  } catch (err) {
-    res.status(500).json({ message: "Lỗi lấy hồ sơ", error: err.message });
-  }
-});
-
-//  PROTECTED: ADMIN
-
-/**
- * GET /api/admin/makers/pending
- * Danh sách hồ sơ đang chờ duyệt
- */
+//  ADMIN: HỒ SƠ CHỜ DUYỆT
 router.get("/admin/pending", verifyAdmin, async (req, res) => {
   try {
     const pending = await MakerProfile.findAll({
@@ -185,10 +154,7 @@ router.get("/admin/pending", verifyAdmin, async (req, res) => {
   }
 });
 
-/**
- * GET /api/admin/makers
- * Tất cả thợ (Admin)
- */
+//  ADMIN: TẤT CẢ THỢ
 router.get("/admin/all", verifyAdmin, async (req, res) => {
   try {
     const all = await MakerProfile.findAll({
@@ -203,10 +169,7 @@ router.get("/admin/all", verifyAdmin, async (req, res) => {
   }
 });
 
-/**
- * PUT /api/makers/admin/:id/approve
- * Duyệt hồ sơ thợ
- */
+//  ADMIN: DUYỆT HỒ SƠ
 router.put("/admin/:id/approve", verifyAdmin, async (req, res) => {
   try {
     const profile = await MakerProfile.findByPk(req.params.id);
@@ -216,16 +179,19 @@ router.put("/admin/:id/approve", verifyAdmin, async (req, res) => {
     profile.status = "da_duyet";
     await profile.save();
 
+    //  Thông báo cho thợ
+    const user = await User.findByPk(profile.userId, {
+      attributes: ["name", "email"],
+    });
+    mailer.notifyMakerApproved({ to: user.email, makerName: user.name });
+
     res.json({ message: "Đã duyệt hồ sơ thợ thành công", profile });
   } catch (err) {
     res.status(500).json({ message: "Lỗi duyệt", error: err.message });
   }
 });
 
-/**
- * PUT /api/makers/admin/:id/reject
- * Từ chối hồ sơ thợ
- */
+//  ADMIN: TỪ CHỐI HỒ SƠ
 router.put("/admin/:id/reject", verifyAdmin, async (req, res) => {
   try {
     const profile = await MakerProfile.findByPk(req.params.id);
@@ -234,9 +200,13 @@ router.put("/admin/:id/reject", verifyAdmin, async (req, res) => {
 
     profile.status = "tu_choi";
     await profile.save();
-
-    // Reset isMaker nếu bị từ chối
     await User.update({ isMaker: false }, { where: { id: profile.userId } });
+
+    //  Thông báo cho thợ
+    const user = await User.findByPk(profile.userId, {
+      attributes: ["name", "email"],
+    });
+    mailer.notifyMakerRejected({ to: user.email, makerName: user.name });
 
     res.json({ message: "Đã từ chối hồ sơ thợ", profile });
   } catch (err) {
