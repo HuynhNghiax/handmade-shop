@@ -4,6 +4,7 @@ const CustomOrder = require("./CustomOrder");
 const Bid = require("./Bid");
 const MakerProfile = require("./MakerProfile");
 const Review = require("./Review");
+const Product = require("./Product");
 
 //  User - Order
 User.hasMany(Order, { foreignKey: "userId" });
@@ -62,4 +63,14 @@ Review.belongsTo(MakerProfile, {
 User.hasMany(Review, { foreignKey: "reviewerId", as: "GivenReviews" });
 Review.belongsTo(User, { foreignKey: "reviewerId", as: "Reviewer" });
 
-module.exports = { User, Order, CustomOrder, Bid, MakerProfile, Review };
+const ProductReview = require("./ProductReview");
+
+// Product - ProductReview
+Product.hasMany(ProductReview, { foreignKey: "productId", as: "Reviews" });
+ProductReview.belongsTo(Product, { foreignKey: "productId", as: "Product" });
+
+// User - ProductReview
+User.hasMany(ProductReview, { foreignKey: "userId", as: "ProductReviews" });
+ProductReview.belongsTo(User, { foreignKey: "userId", as: "User" });
+
+module.exports = { User, Order, CustomOrder, Bid, MakerProfile, Review, ProductReview };

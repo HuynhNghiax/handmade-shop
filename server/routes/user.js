@@ -16,7 +16,7 @@ router.get("/my-profile", verifyToken, async (req, res) => {
     const myRequests = await CustomOrder.findAll({
       where: { userId: req.user.id },
       include: [
-        { model: Bid, include: [{ model: User, attributes: ["name"] }] },
+        { model: Bid, as: "Bids", include: [{ model: User, as: "MakerUser", attributes: ["name"] }] },
       ],
     });
 
