@@ -16,6 +16,7 @@ const logRoutes = require("./routes/log");
 const customOrderRoutes = require("./routes/customOrder");
 const makerRoutes = require("./routes/maker");
 const reviewRoutes = require("./routes/review");
+const productReviewRoutes = require("./routes/productReview");
 
 const app = express();
 
@@ -41,6 +42,7 @@ app.use("/api/logs", logRoutes);
 app.use("/api/custom-orders", customOrderRoutes);
 app.use("/api/makers", makerRoutes);
 app.use("/api/reviews", reviewRoutes);
+app.use("/api/product-reviews", productReviewRoutes);
 
 // HEALTH CHECK
 app.get("/health", (req, res) => res.json({ status: "ok", ts: new Date() }));

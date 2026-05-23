@@ -1,8 +1,10 @@
 import React, { useState, useEffect, useContext } from 'react';
 import axios from 'axios';
+import { useNavigate } from 'react-router-dom';
 import { AuthContext } from '../context/AuthContext';
 
 const Profile = () => {
+  const navigate = useNavigate();
   // 1. Khởi tạo state với mảng rỗng để tránh lỗi length ngay từ đầu
   const [data, setData] = useState({
     myOrders: [],
@@ -257,8 +259,8 @@ const Profile = () => {
                       )}
                       {order.status === "Hoàn thành" && (
                         <>
-                          <button onClick={() => alert('Chức năng đánh giá đang phát triển!')} className="border-2 border-gray-200 text-gray-600 px-6 py-2.5 rounded-full text-[10px] font-black uppercase tracking-widest hover:bg-gray-100 transition-all">Đánh giá</button>
-                          <button onClick={() => alert('Chức năng mua lại đang phát triển!')} className="bg-pink-500 text-white px-6 py-2.5 rounded-full text-[10px] font-black uppercase tracking-widest hover:bg-pink-600 transition-all shadow-xl shadow-pink-500/30">Mua lại</button>
+                          <button onClick={() => order.products?.length > 0 && navigate(`/product/${order.products[0].id}`)} className="border-2 border-gray-200 text-gray-600 px-6 py-2.5 rounded-full text-[10px] font-black uppercase tracking-widest hover:bg-gray-100 transition-all">Đánh giá</button>
+                          <button onClick={() => order.products?.length > 0 && navigate(`/product/${order.products[0].id}`)} className="bg-pink-500 text-white px-6 py-2.5 rounded-full text-[10px] font-black uppercase tracking-widest hover:bg-pink-600 transition-all shadow-xl shadow-pink-500/30">Mua lại</button>
                         </>
                       )}
                     </div>
