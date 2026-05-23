@@ -12,7 +12,11 @@ import Register from './pages/Register';
 import ForgotPassword from './pages/ForgotPassword';
 import AuthCallback from './pages/AuthCallback';
 import CustomOrder from './pages/CustomOrder';
+import CustomOrderDetail from './pages/CustomOrderDetail';
 import Profile from './pages/Profile';
+import BecomeMaker from './pages/BecomeMaker';
+import MakerList from './pages/MakerList';
+import MakerProfile from './pages/MakerProfile';
 
 import AdminDashboard from './pages/AdminDashboard';
 import AdminProductManager from './pages/AdminProductManager';
@@ -23,49 +27,39 @@ function App() {
     <Router>
       <Navbar />
       <Routes>
-        {/* ROUTES CÔNG KHAI */}
-        <Route path="/"               element={<Home />} />
-        <Route path="/products"       element={<ProductPage />} />
-        <Route path="/product/:id"    element={<ProductDetail />} />
-        <Route path="/cart"           element={<Cart />} />
-        <Route path="/checkout"       element={<Checkout />} />
-        <Route path="/custom-order"   element={<CustomOrder />} />
-        <Route path="/profile"        element={<Profile />} />
+        {/*  ROUTES CÔNG KHAI  */}
+        <Route path="/" element={<Home />} />
+        <Route path="/products" element={<ProductPage />} />
+        <Route path="/product/:id" element={<ProductDetail />} />
+        <Route path="/cart" element={<Cart />} />
+        <Route path="/checkout" element={<Checkout />} />
+        <Route path="/custom-order" element={<CustomOrder />} />
+        <Route path="/custom-order/:id" element={<CustomOrderDetail />} />
+        <Route path="/profile" element={<Profile />} />
 
-        {/* AUTH ROUTES */}
-        <Route path="/login"           element={<Login />} />
-        <Route path="/register"        element={<Register />} />
+        {/*  GIA CÔNG / THỢ  */}
+        <Route path="/become-maker" element={<BecomeMaker />} />
+        <Route path="/makers" element={<MakerList />} />
+        <Route path="/maker/:id" element={<MakerProfile />} />
+
+        {/*  AUTH  */}
+        <Route path="/login" element={<Login />} />
+        <Route path="/register" element={<Register />} />
         <Route path="/forgot-password" element={<ForgotPassword />} />
-        {/* Trang trung gian nhận redirect từ Google OAuth backend */}
-        <Route path="/auth/callback"   element={<AuthCallback />} />
+        <Route path="/auth/callback" element={<AuthCallback />} />
 
-        {/* ROUTES BẢO MẬT (CHỈ ADMIN) */}
-        <Route
-          path="/admin"
-          element={
-            <ProtectedRoute>
-              <AdminDashboard />
-            </ProtectedRoute>
-          }
-        />
-        <Route
-          path="/admin/products"
-          element={
-            <ProtectedRoute>
-              <AdminProductManager />
-            </ProtectedRoute>
-          }
-        />
+        {/*  ADMIN (BẢO MẬT)  */}
+        <Route path="/admin" element={
+          <ProtectedRoute><AdminDashboard /></ProtectedRoute>
+        } />
+        <Route path="/admin/products" element={
+          <ProtectedRoute><AdminProductManager /></ProtectedRoute>
+        } />
 
-        {/* 404 */}
-        <Route
-          path="*"
-          element={
-            <div className="p-20 text-center font-serif">
-              Lạc đường rồi sếp ơi...
-            </div>
-          }
-        />
+        {/*  404  */}
+        <Route path="*" element={
+          <div className="p-20 text-center font-serif">Lạc đường rồi sếp ơi...</div>
+        } />
       </Routes>
     </Router>
   );
