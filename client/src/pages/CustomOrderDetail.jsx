@@ -2,25 +2,27 @@ import React, { useState, useEffect, useContext } from 'react';
 import { useParams, Link, useNavigate } from 'react-router-dom';
 import axios from 'axios';
 import { AuthContext } from '../context/AuthContext';
+import CommissionSummary from '../components/CommissionSummary';
+import MakerBadge from '../components/MakerBadge';
 
-// ─── Constants ────────────────────────────────────────────────────────────────
+//  Constants 
 const STATUS_STEPS = ['Đang tìm thợ', 'Đã chọn thợ', 'Đang thực hiện', 'Chờ xác nhận', 'Hoàn thành'];
 
 const STATUS_COLOR = {
-  'Đang tìm thợ':   'bg-blue-50   text-blue-600',
-  'Đã chọn thợ':    'bg-purple-50 text-purple-600',
+  'Đang tìm thợ': 'bg-blue-50   text-blue-600',
+  'Đã chọn thợ': 'bg-purple-50 text-purple-600',
   'Đang thực hiện': 'bg-yellow-50 text-yellow-600',
-  'Chờ xác nhận':   'bg-orange-50 text-orange-600',
-  'Hoàn thành':     'bg-green-50  text-green-600',
-  'Đã hủy':         'bg-gray-100  text-gray-500',
+  'Chờ xác nhận': 'bg-orange-50 text-orange-600',
+  'Hoàn thành': 'bg-green-50  text-green-600',
+  'Đã hủy': 'bg-gray-100  text-gray-500',
 };
 
-// ─── Sub-components ───────────────────────────────────────────────────────────
+//  Sub-components 
 const StatusTimeline = ({ current }) => {
   const idx = STATUS_STEPS.indexOf(current);
   if (current === 'Đã hủy') return (
     <div className="flex items-center gap-2 px-4 py-2 bg-gray-100 rounded-full w-fit">
-      <span className="size-2 bg-gray-400 rounded-full"></span>
+      <span className="size-2 bg-gray-400 rounded-full" />
       <span className="text-xs font-bold text-gray-500 uppercase">Đã hủy</span>
     </div>
   );
@@ -30,9 +32,9 @@ const StatusTimeline = ({ current }) => {
         <React.Fragment key={step}>
           <div className={`flex flex-col items-center flex-shrink-0 ${i <= idx ? 'opacity-100' : 'opacity-30'}`}>
             <div className={`size-8 rounded-full flex items-center justify-center text-[10px] font-black border-2 transition-all
-              ${i < idx  ? 'bg-pink-500 border-pink-500 text-white' :
+              ${i < idx ? 'bg-pink-500 border-pink-500 text-white' :
                 i === idx ? 'bg-white border-pink-500 text-pink-500 shadow-md' :
-                            'bg-gray-100 border-gray-200 text-gray-400'}`}>
+                  'bg-gray-100 border-gray-200 text-gray-400'}`}>
               {i < idx ? '✓' : i + 1}
             </div>
             <p className="text-[8px] font-bold uppercase mt-1 text-center w-16 leading-tight text-gray-500">{step}</p>
@@ -48,36 +50,35 @@ const StatusTimeline = ({ current }) => {
 
 const StarRating = ({ rating }) => (
   <div className="flex gap-1">
-    {[1,2,3,4,5].map(n => (
+    {[1, 2, 3, 4, 5].map(n => (
       <svg key={n} className={`size-4 ${n <= rating ? 'text-yellow-400' : 'text-gray-200'}`}
         fill="currentColor" viewBox="0 0 20 20">
-        <path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z"/>
+        <path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z" />
       </svg>
     ))}
   </div>
 );
 
-// ─── Main Component ───────────────────────────────────────────────────────────
+//  Main Component 
 const CustomOrderDetail = () => {
-  const { id }    = useParams();
-  const navigate  = useNavigate();
-  const { user }  = useContext(AuthContext);
+  const { id } = useParams();
+  const navigate = useNavigate();
+  const { user } = useContext(AuthContext);
 
-  const [order,   setOrder]   = useState(null);
+  const [order, setOrder] = useState(null);
   const [loading, setLoading] = useState(true);
-  const [acting,  setActing]  = useState(false);
+  const [acting, setActing] = useState(false);
 
-  // Review form
-  const [reviewRating,  setReviewRating]  = useState(5);
+  const [reviewRating, setReviewRating] = useState(5);
   const [reviewComment, setReviewComment] = useState('');
-  const [reviewSaving,  setReviewSaving]  = useState(false);
+  const [reviewSaving, setReviewSaving] = useState(false);
 
   const fetchOrder = async () => {
     try {
       const res = await axios.get(`http://localhost:5000/api/custom-orders/${id}`);
       setOrder(res.data);
     } catch (err) {
-      console.error(err);
+      console.error('[CustomOrderDetail] fetchOrder:', err.message);
     } finally {
       setLoading(false);
     }
@@ -138,7 +139,6 @@ const CustomOrderDetail = () => {
     <div className="min-h-screen bg-white font-sans py-16 px-6">
       <div className="max-w-4xl mx-auto">
 
-        {/* Back */}
         <button
           onClick={() => navigate(-1)}
           className="flex items-center gap-2 text-[10px] font-black uppercase tracking-widest text-gray-400 hover:text-pink-500 transition-all mb-10"
@@ -148,7 +148,7 @@ const CustomOrderDetail = () => {
 
         {/* Header card */}
         <div className="bg-gray-950 text-white rounded-[3rem] p-10 md:p-14 mb-8 relative overflow-hidden">
-          <div className="absolute top-0 right-0 w-64 h-64 bg-pink-500/10 rounded-full -translate-y-1/2 translate-x-1/4"></div>
+          <div className="absolute top-0 right-0 w-64 h-64 bg-pink-500/10 rounded-full -translate-y-1/2 translate-x-1/4" />
           <div className="relative z-10">
             <span className={`inline-block px-4 py-1.5 rounded-full text-[9px] font-black uppercase mb-6 ${STATUS_COLOR[order.status] || 'bg-gray-100 text-gray-500'}`}>
               {order.status}
@@ -156,6 +156,9 @@ const CustomOrderDetail = () => {
             <h1 className="text-3xl md:text-4xl font-serif italic tracking-tighter mb-4">{order.title}</h1>
             <div className="flex flex-wrap gap-6 text-[10px] font-black uppercase tracking-widest text-gray-400">
               <span>💰 Ngân sách: <span className="text-pink-400">{order.budget?.toLocaleString('vi-VN')}đ</span></span>
+              {order.agreedPrice && (
+                <span>✅ Giá chốt: <span className="text-green-400">{order.agreedPrice?.toLocaleString('vi-VN')}đ</span></span>
+              )}
               {order.deadline && <span>📅 Hạn: {new Date(order.deadline).toLocaleDateString('vi-VN')}</span>}
               <span>👤 Đăng bởi: {order.Customer?.name}</span>
             </div>
@@ -169,8 +172,6 @@ const CustomOrderDetail = () => {
         </div>
 
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-
-          {/* Left column */}
           <div className="lg:col-span-2 space-y-8">
 
             {/* Description */}
@@ -181,6 +182,16 @@ const CustomOrderDetail = () => {
                 <img src={order.image} alt="ref" className="mt-6 rounded-2xl max-h-64 object-cover" />
               )}
             </div>
+
+            {/* Commission info — hiển thị sau khi đã chốt thợ */}
+            {order.agreedPrice && (isOwner || isMaker) && (
+              <CommissionSummary
+                agreedPrice={order.agreedPrice}
+                commissionRate={order.commissionRate}
+                commissionAmount={order.commissionAmount}
+                makerEarning={order.makerEarning}
+              />
+            )}
 
             {/* Maker info (when assigned) */}
             {order.Maker && (
@@ -194,7 +205,9 @@ const CustomOrderDetail = () => {
                       {order.Maker.name?.charAt(0)}
                     </div>
                   )}
-                  <p className="font-bold text-gray-950">{order.Maker.name}</p>
+                  <div>
+                    <p className="font-bold text-gray-950">{order.Maker.name}</p>
+                  </div>
                 </div>
               </div>
             )}
@@ -209,12 +222,12 @@ const CustomOrderDetail = () => {
                   {order.Bids.map(bid => {
                     const isAccepted = bid.id === order.acceptedBidId;
                     const makerProfile = bid.MakerUser?.MakerProfile;
+
                     return (
                       <div
                         key={bid.id}
-                        className={`rounded-3xl p-6 border-2 transition-all ${
-                          isAccepted ? 'border-pink-400 bg-pink-50' : 'border-gray-100 bg-gray-50'
-                        }`}
+                        className={`rounded-3xl p-6 border-2 transition-all ${isAccepted ? 'border-pink-400 bg-pink-50' : 'border-gray-100 bg-gray-50'
+                          }`}
                       >
                         <div className="flex flex-col sm:flex-row justify-between gap-4">
                           <div className="flex items-start gap-4 flex-1">
@@ -225,20 +238,36 @@ const CustomOrderDetail = () => {
                                 {bid.MakerUser?.name?.charAt(0)}
                               </div>
                             )}
-                            <div>
-                              <p className="font-bold text-gray-950 flex items-center gap-2">
-                                {bid.MakerUser?.name}
-                                {isAccepted && <span className="text-[9px] bg-pink-500 text-white px-2 py-0.5 rounded-full">Đã chọn</span>}
-                              </p>
+                            <div className="flex-1">
+                              <div className="flex items-center gap-2 flex-wrap mb-1">
+                                <p className="font-bold text-gray-950">{bid.MakerUser?.name}</p>
+                                {isAccepted && (
+                                  <span className="text-[9px] bg-pink-500 text-white px-2 py-0.5 rounded-full">Đã chọn</span>
+                                )}
+                                {/* Huy hiệu thợ */}
+                                {makerProfile?.badge && (
+                                  <MakerBadge badge={makerProfile.badge} badgeEmoji={makerProfile.badgeEmoji} />
+                                )}
+                              </div>
+
                               {makerProfile && (
-                                <p className="text-[9px] text-gray-400 font-bold uppercase mt-0.5">
+                                <p className="text-[9px] text-gray-400 font-bold uppercase mb-1">
                                   ⭐ {makerProfile.rating > 0 ? makerProfile.rating.toFixed(1) : 'Chưa có'} · {makerProfile.totalDone} đơn
                                 </p>
                               )}
-                              <p className="text-sm text-gray-500 mt-2 italic">"{bid.message}"</p>
+                              <p className="text-sm text-gray-500 italic">"{bid.message}"</p>
                               <p className="text-[9px] text-gray-400 font-bold mt-1">📞 {bid.contactInfo}</p>
+
+                              {/* Preview phí kết nối khi hover chọn */}
+                              {!isAccepted && order.status === 'Đang tìm thợ' && makerProfile && (
+                                <p className="text-[9px] text-gray-400 mt-2">
+                                  Thợ nhận: ~{((bid.price * (100 - (makerProfile.commissionRate || 10)) / 100)).toLocaleString('vi-VN')}đ
+                                  (sau phí {makerProfile.commissionRate || 10}%)
+                                </p>
+                              )}
                             </div>
                           </div>
+
                           <div className="flex flex-col items-end gap-3 flex-shrink-0">
                             <p className="text-xl font-bold text-pink-500">{bid.price?.toLocaleString('vi-VN')}đ</p>
                             {!isAccepted && order.status === 'Đang tìm thợ' && (
@@ -280,7 +309,7 @@ const CustomOrderDetail = () => {
                 <div className="mb-4">
                   <p className="text-xs font-bold text-gray-500 mb-2">Chọn số sao:</p>
                   <div className="flex gap-2">
-                    {[1,2,3,4,5].map(n => (
+                    {[1, 2, 3, 4, 5].map(n => (
                       <button
                         key={n}
                         type="button"
@@ -315,7 +344,6 @@ const CustomOrderDetail = () => {
             <div className="bg-gray-50 rounded-3xl p-6 space-y-3 sticky top-28">
               <p className="text-[10px] font-black uppercase tracking-widest text-gray-400 mb-2">Thao tác</p>
 
-              {/* Chủ đơn: hủy */}
               {isOwner && ['Đang tìm thợ', 'Đã chọn thợ'].includes(order.status) && (
                 <button
                   onClick={() => { if (window.confirm('Xác nhận hủy đơn?')) action('cancel'); }}
@@ -326,7 +354,6 @@ const CustomOrderDetail = () => {
                 </button>
               )}
 
-              {/* Chủ đơn: xác nhận nhận hàng */}
               {isOwner && order.status === 'Chờ xác nhận' && (
                 <button
                   onClick={() => { if (window.confirm('Xác nhận đã nhận hàng?')) action('confirm'); }}
@@ -337,7 +364,6 @@ const CustomOrderDetail = () => {
                 </button>
               )}
 
-              {/* Thợ: xác nhận bắt đầu */}
               {isMaker && order.status === 'Đã chọn thợ' && (
                 <button
                   onClick={() => action('start')}
@@ -348,7 +374,6 @@ const CustomOrderDetail = () => {
                 </button>
               )}
 
-              {/* Thợ: báo hoàn thành */}
               {isMaker && order.status === 'Đang thực hiện' && (
                 <button
                   onClick={() => action('complete')}

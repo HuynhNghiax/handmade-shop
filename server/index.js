@@ -17,6 +17,7 @@ const customOrderRoutes = require("./routes/customOrder");
 const makerRoutes = require("./routes/maker");
 const reviewRoutes = require("./routes/review");
 const productReviewRoutes = require("./routes/productReview");
+const adminRoutes = require("./routes/admin"); // MỚI
 
 const app = express();
 
@@ -43,6 +44,7 @@ app.use("/api/custom-orders", customOrderRoutes);
 app.use("/api/makers", makerRoutes);
 app.use("/api/reviews", reviewRoutes);
 app.use("/api/product-reviews", productReviewRoutes);
+app.use("/api/admin", adminRoutes); // MỚI
 
 // HEALTH CHECK
 app.get("/health", (req, res) => res.json({ status: "ok", ts: new Date() }));
@@ -53,7 +55,7 @@ const PORT = process.env.PORT || 5000;
 sequelize
   .sync({ alter: true })
   .then(() => {
-    console.log("Database synced (alter)");
+    console.log("Database synced");
     app.listen(PORT, () => {
       console.log(`PinkyCrafts server running on port ${PORT}`);
     });
