@@ -102,18 +102,40 @@ const Navbar = () => {
         {/* TIỆN ÍCH */}
         <div className="flex items-center gap-4 md:gap-6">
 
-          {/* Nút "Trở thành thợ" */}
+          {/* Nút "Trở thành thợ" hoặc pill group thợ */}
           {user && !user.isAdmin && (
-            <Link
-              to="/become-maker"
-              className={`hidden md:block text-[9px] font-black uppercase tracking-widest px-4 py-2 rounded-full transition-all border
-                ${user.isMaker
-                  ? 'border-pink-200 text-pink-500 bg-pink-50 hover:bg-pink-100'
-                  : 'border-gray-200 text-gray-500 hover:border-pink-300 hover:text-pink-500'
-                }`}
-            >
-              {user.isMaker ? '🧶 Hồ sơ thợ' : '+ Trở thành thợ'}
-            </Link>
+            user.isMaker ? (
+              // Pill group cho thợ đã được duyệt
+              <div className="hidden md:flex items-center border border-pink-200 rounded-full overflow-hidden bg-pink-50">
+                <Link
+                  to="/become-maker"
+                  className="flex items-center gap-1.5 px-4 py-2 text-[9px] font-black uppercase tracking-widest text-pink-600 hover:bg-pink-100 transition-colors"
+                >
+                  <svg xmlns="http://www.w3.org/2000/svg" className="size-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+                  </svg>
+                  Hồ sơ thợ
+                </Link>
+                <span className="w-px h-5 bg-pink-200 flex-shrink-0" />
+                <Link
+                  to="/maker-dashboard"
+                  className="flex items-center gap-1.5 px-4 py-2 text-[9px] font-black uppercase tracking-widest text-pink-600 hover:bg-pink-100 transition-colors"
+                >
+                  <svg xmlns="http://www.w3.org/2000/svg" className="size-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M9 17V7m0 10a2 2 0 01-2 2H5a2 2 0 01-2-2V7a2 2 0 012-2h2a2 2 0 012 2m0 10a2 2 0 002 2h2a2 2 0 002-2M9 7a2 2 0 012-2h2a2 2 0 012 2m0 10V7m0 10a2 2 0 002 2h2a2 2 0 002-2V7a2 2 0 00-2-2h-2a2 2 0 00-2 2" />
+                  </svg>
+                  Quản lý đơn
+                </Link>
+              </div>
+            ) : (
+              // Nút đơn cho user chưa là thợ
+              <Link
+                to="/become-maker"
+                className="hidden md:block text-[9px] font-black uppercase tracking-widest px-4 py-2 rounded-full transition-all border border-gray-200 text-gray-500 hover:border-pink-300 hover:text-pink-500"
+              >
+                + Trở thành thợ
+              </Link>
+            )
           )}
 
           {/* GIỎ HÀNG */}

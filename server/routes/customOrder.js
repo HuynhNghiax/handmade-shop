@@ -47,11 +47,13 @@ router.post("/", verifyToken, async (req, res) => {
   }
 });
 
-//  DANH SÁCH ĐƠN (PUBLIC)
+//  DANH SÁCH ĐƠN (PUBLIC) — hỗ trợ filter theo status và makerId
 router.get("/", async (req, res) => {
   try {
-    const { status } = req.query;
-    const where = status ? { status } : {};
+    const { status, makerId } = req.query;
+    const where = {};
+    if (status) where.status = status;
+    if (makerId) where.makerId = parseInt(makerId);
 
     const orders = await CustomOrder.findAll({
       where,
@@ -219,7 +221,6 @@ router.post("/:id/accept-bid", verifyToken, async (req, res) => {
       await t.rollback();
       return res.status(403).json({ message: "Bạn không phải chủ đơn này!" });
     }
-
     if (order.status !== ORDER_STATUS.FINDING) {
       await t.rollback();
       return res
@@ -360,8 +361,7 @@ router.post("/:id/complete", verifyToken, async (req, res) => {
   }
 });
 
-//  KHÁCH XÁC NHẬN NHẬN HÀNG
-//  COMMISSION STEP 2: Cộng dồn earning + tạo CommissionDebt
+//  KHÁCH XÁC NHẬN NHẬN HÀNG — COMMISSION STEP 2
 router.post("/:id/confirm", verifyToken, async (req, res) => {
   const t = await sequelize.transaction();
   try {
@@ -381,11 +381,9 @@ router.post("/:id/confirm", verifyToken, async (req, res) => {
         .json({ message: "Đơn không ở trạng thái chờ xác nhận!" });
     }
 
-    // Cập nhật đơn → Hoàn thành
     order.status = ORDER_STATUS.DONE;
     await order.save({ transaction: t });
 
-    // Cập nhật MakerProfile: totalDone + totalEarning + badge
     const makerProfile = await MakerProfile.findOne({
       where: { userId: order.makerId },
       transaction: t,
@@ -404,7 +402,6 @@ router.post("/:id/confirm", verifyToken, async (req, res) => {
       makerProfile.badgeEmoji = tier.emoji;
       await makerProfile.save({ transaction: t });
 
-      // Tạo CommissionDebt — ghi nợ thợ với shop
       await CommissionDebt.create(
         {
           makerId: makerProfile.id,
