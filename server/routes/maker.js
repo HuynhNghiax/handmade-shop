@@ -3,6 +3,8 @@ const { Op } = require("sequelize");
 const User = require("../models/User");
 const MakerProfile = require("../models/MakerProfile");
 const Review = require("../models/Review");
+const CommissionDebt = require("../models/CommissionDebt");
+const CustomOrder = require("../models/CustomOrder");
 const { verifyToken, verifyAdmin } = require("../middleware/authMiddleware");
 const mailer = require("../utils/mailer");
 
@@ -43,7 +45,7 @@ router.get("/", async (req, res) => {
 });
 
 //  PROTECTED: XEM HỒ SƠ CỦA CHÍNH MÌNH
-//  PHẢI ĐẶT TRƯỚC GET /:id — nếu không "my-profile" sẽ bị /:id chặn mất
+//  PHẢI ĐẶT TRƯỚC GET /:id
 router.get("/my-profile", verifyToken, async (req, res) => {
   try {
     const profile = await MakerProfile.findOne({
@@ -54,6 +56,50 @@ router.get("/my-profile", verifyToken, async (req, res) => {
     res.json(profile);
   } catch (err) {
     res.status(500).json({ message: "Lỗi lấy hồ sơ", error: err.message });
+  }
+});
+
+//  PROTECTED: XEM CÔNG NỢ CỦA CHÍNH MÌNH
+router.get("/my-debts", verifyToken, async (req, res) => {
+  try {
+    const profile = await MakerProfile.findOne({
+      where: { userId: req.user.id },
+    });
+    if (!profile)
+      return res.status(404).json({ message: "Bạn chưa có hồ sơ thợ" });
+
+    const debts = await CommissionDebt.findAll({
+      where: { makerId: profile.id },
+      include: [
+        {
+          model: CustomOrder,
+          as: "Order",
+          attributes: ["id", "title", "agreedPrice", "updatedAt"],
+        },
+      ],
+      order: [["createdAt", "DESC"]],
+    });
+
+    const totalPending = debts
+      .filter((d) => d.status === "chua_thu")
+      .reduce((s, d) => s + d.amount, 0);
+
+    const totalPaid = debts
+      .filter((d) => d.status === "da_thu")
+      .reduce((s, d) => s + d.amount, 0);
+
+    res.json({
+      debts,
+      summary: {
+        totalPending,
+        totalPaid,
+        totalEarning: profile.totalEarning,
+        pendingCount: debts.filter((d) => d.status === "chua_thu").length,
+      },
+    });
+  } catch (err) {
+    console.error("[Maker GET /my-debts]", err.message);
+    res.status(500).json({ message: "Lỗi lấy công nợ", error: err.message });
   }
 });
 
@@ -88,11 +134,10 @@ router.post("/register", verifyToken, async (req, res) => {
     const existing = await MakerProfile.findOne({
       where: { userId: req.user.id },
     });
-    if (existing) {
+    if (existing)
       return res
         .status(400)
         .json({ message: "Bạn đã có hồ sơ thợ rồi!", profile: existing });
-    }
 
     const { bio, skills, portfolio } = req.body;
     const profile = await MakerProfile.create({
@@ -179,7 +224,6 @@ router.put("/admin/:id/approve", verifyAdmin, async (req, res) => {
     profile.status = "da_duyet";
     await profile.save();
 
-    //  Thông báo cho thợ
     const user = await User.findByPk(profile.userId, {
       attributes: ["name", "email"],
     });
@@ -202,7 +246,6 @@ router.put("/admin/:id/reject", verifyAdmin, async (req, res) => {
     await profile.save();
     await User.update({ isMaker: false }, { where: { id: profile.userId } });
 
-    //  Thông báo cho thợ
     const user = await User.findByPk(profile.userId, {
       attributes: ["name", "email"],
     });

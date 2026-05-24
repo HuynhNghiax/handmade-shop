@@ -5,8 +5,7 @@
  *
  * COMMISSION FLOW:
  *   1. accept-bid  → snapshot commissionRate từ MakerProfile + tính các trường commission
- *   2. confirm     → cộng dồn totalEarning vào MakerProfile
- *
+ *   2. confirm     → cộng dồn totalEarning vào MakerProfile + tạo CommissionDebt
  */
 
 const router = require("express").Router();
@@ -18,6 +17,7 @@ const CustomOrder = require("../models/CustomOrder");
 const MakerProfile = require("../models/MakerProfile");
 const Bid = require("../models/Bid");
 const Review = require("../models/Review");
+const CommissionDebt = require("../models/CommissionDebt");
 const { verifyToken } = require("../middleware/authMiddleware");
 const mailer = require("../utils/mailer");
 const { COMMISSION, ORDER_STATUS } = require("../constants/business");
@@ -25,7 +25,6 @@ const { COMMISSION, ORDER_STATUS } = require("../constants/business");
 const CLIENT = process.env.CLIENT_URL || "http://localhost:5173";
 const orderUrl = (id) => `${CLIENT}/custom-order/${id}`;
 
-/** Lấy User kèm email — dùng để gửi mail */
 const getUser = (id) =>
   User.findByPk(id, { attributes: ["id", "name", "email"] });
 
@@ -158,11 +157,12 @@ router.post("/:id/bid", verifyToken, async (req, res) => {
       where: { userId: req.user.id, status: "da_duyet" },
     });
     if (!makerProfile)
-      return res.status(403).json({
-        message: "Bạn cần là thợ được Admin duyệt mới có thể báo giá!",
-      });
+      return res
+        .status(403)
+        .json({
+          message: "Bạn cần là thợ được Admin duyệt mới có thể báo giá!",
+        });
 
-    // Kiểm tra thợ bị khóa
     if (makerProfile.isBanned)
       return res.status(403).json({
         message: `Tài khoản thợ của bạn đang bị khóa. Lý do: ${makerProfile.banReason || "Vi phạm quy định"}`,
@@ -184,7 +184,6 @@ router.post("/:id/bid", verifyToken, async (req, res) => {
       contactInfo: req.body.contactInfo,
     });
 
-    // Gửi mail thông báo cho khách
     const [customer, maker] = await Promise.all([
       getUser(order.userId),
       getUser(req.user.id),
@@ -207,9 +206,7 @@ router.post("/:id/bid", verifyToken, async (req, res) => {
 });
 
 //  KHÁCH CHỌN BÁO GIÁ
-// COMMISSION STEP 1: Snapshot rate + tính các trường commission
 router.post("/:id/accept-bid", verifyToken, async (req, res) => {
-  // Dùng transaction để đảm bảo nếu bước nào lỗi thì rollback toàn bộ
   const t = await sequelize.transaction();
   try {
     const order = await CustomOrder.findByPk(req.params.id, { transaction: t });
@@ -239,7 +236,6 @@ router.post("/:id/accept-bid", verifyToken, async (req, res) => {
       return res.status(404).json({ message: "Không tìm thấy báo giá" });
     }
 
-    // Lấy commissionRate từ MakerProfile tại thời điểm này (snapshot)
     const makerProfile = await MakerProfile.findOne({
       where: { userId: bid.makerId },
       transaction: t,
@@ -249,7 +245,6 @@ router.post("/:id/accept-bid", verifyToken, async (req, res) => {
     const { commissionAmount, shopEarning, makerEarning } =
       COMMISSION.calculate(bid.price, rate);
 
-    // Cập nhật đơn với đầy đủ thông tin commission
     order.acceptedBidId = bid.id;
     order.makerId = bid.makerId;
     order.status = ORDER_STATUS.SELECTED;
@@ -262,7 +257,6 @@ router.post("/:id/accept-bid", verifyToken, async (req, res) => {
 
     await t.commit();
 
-    // Gửi mail thông báo cho thợ (ngoài transaction)
     const [customer, maker] = await Promise.all([
       getUser(order.userId),
       getUser(bid.makerId),
@@ -279,7 +273,6 @@ router.post("/:id/accept-bid", verifyToken, async (req, res) => {
     res.json({
       message: "Đã chọn báo giá thành công!",
       order,
-      // Trả về summary commission để frontend hiển thị
       commissionSummary: {
         agreedPrice: bid.price,
         commissionRate: rate,
@@ -300,12 +293,10 @@ router.post("/:id/start", verifyToken, async (req, res) => {
   try {
     const order = await CustomOrder.findByPk(req.params.id);
     if (!order) return res.status(404).json({ message: "Không tìm thấy đơn" });
-
     if (order.makerId !== req.user.id)
       return res
         .status(403)
         .json({ message: "Bạn không phải thợ của đơn này!" });
-
     if (order.status !== ORDER_STATUS.SELECTED)
       return res
         .status(400)
@@ -318,7 +309,6 @@ router.post("/:id/start", verifyToken, async (req, res) => {
       getUser(order.userId),
       getUser(req.user.id),
     ]);
-
     mailer.notifyOrderStarted({
       to: customer.email,
       customerName: customer.name,
@@ -339,12 +329,10 @@ router.post("/:id/complete", verifyToken, async (req, res) => {
   try {
     const order = await CustomOrder.findByPk(req.params.id);
     if (!order) return res.status(404).json({ message: "Không tìm thấy đơn" });
-
     if (order.makerId !== req.user.id)
       return res
         .status(403)
         .json({ message: "Bạn không phải thợ của đơn này!" });
-
     if (order.status !== ORDER_STATUS.IN_PROGRESS)
       return res
         .status(400)
@@ -357,7 +345,6 @@ router.post("/:id/complete", verifyToken, async (req, res) => {
       getUser(order.userId),
       getUser(req.user.id),
     ]);
-
     mailer.notifyOrderReadyToConfirm({
       to: customer.email,
       customerName: customer.name,
@@ -374,7 +361,7 @@ router.post("/:id/complete", verifyToken, async (req, res) => {
 });
 
 //  KHÁCH XÁC NHẬN NHẬN HÀNG
-// COMMISSION STEP 2: Cộng dồn earning vào MakerProfile
+//  COMMISSION STEP 2: Cộng dồn earning + tạo CommissionDebt
 router.post("/:id/confirm", verifyToken, async (req, res) => {
   const t = await sequelize.transaction();
   try {
@@ -383,12 +370,10 @@ router.post("/:id/confirm", verifyToken, async (req, res) => {
       await t.rollback();
       return res.status(404).json({ message: "Không tìm thấy đơn" });
     }
-
     if (order.userId !== req.user.id) {
       await t.rollback();
       return res.status(403).json({ message: "Bạn không phải chủ đơn này!" });
     }
-
     if (order.status !== ORDER_STATUS.WAITING) {
       await t.rollback();
       return res
@@ -396,11 +381,11 @@ router.post("/:id/confirm", verifyToken, async (req, res) => {
         .json({ message: "Đơn không ở trạng thái chờ xác nhận!" });
     }
 
-    // Cập nhật đơn
+    // Cập nhật đơn → Hoàn thành
     order.status = ORDER_STATUS.DONE;
     await order.save({ transaction: t });
 
-    // Cập nhật MakerProfile: totalDone + totalEarning
+    // Cập nhật MakerProfile: totalDone + totalEarning + badge
     const makerProfile = await MakerProfile.findOne({
       where: { userId: order.makerId },
       transaction: t,
@@ -409,9 +394,7 @@ router.post("/:id/confirm", verifyToken, async (req, res) => {
     if (makerProfile) {
       makerProfile.totalDone += 1;
       makerProfile.totalEarning += order.makerEarning || 0;
-      await makerProfile.save({ transaction: t });
 
-      // Tính lại badge sau khi cập nhật (trong transaction)
       const { MAKER_BADGE } = require("../constants/business");
       const tier = MAKER_BADGE.calculate(
         makerProfile.totalDone,
@@ -420,6 +403,19 @@ router.post("/:id/confirm", verifyToken, async (req, res) => {
       makerProfile.badge = tier.label;
       makerProfile.badgeEmoji = tier.emoji;
       await makerProfile.save({ transaction: t });
+
+      // Tạo CommissionDebt — ghi nợ thợ với shop
+      await CommissionDebt.create(
+        {
+          makerId: makerProfile.id,
+          customOrderId: order.id,
+          amount: order.shopEarning || 0,
+          agreedPrice: order.agreedPrice,
+          commissionRate: order.commissionRate,
+          status: "chua_thu",
+        },
+        { transaction: t },
+      );
     }
 
     await t.commit();
@@ -427,7 +423,6 @@ router.post("/:id/confirm", verifyToken, async (req, res) => {
     res.json({
       message: "Xác nhận hoàn thành thành công!",
       order,
-      // Thông tin để frontend hiển thị tóm tắt
       summary: {
         agreedPrice: order.agreedPrice,
         makerEarning: order.makerEarning,
@@ -447,14 +442,14 @@ router.post("/:id/cancel", verifyToken, async (req, res) => {
   try {
     const order = await CustomOrder.findByPk(req.params.id);
     if (!order) return res.status(404).json({ message: "Không tìm thấy đơn" });
-
     if (order.userId !== req.user.id)
       return res.status(403).json({ message: "Bạn không phải chủ đơn này!" });
-
     if (![ORDER_STATUS.FINDING, ORDER_STATUS.SELECTED].includes(order.status))
-      return res.status(400).json({
-        message: "Không thể hủy đơn đang thực hiện hoặc đã hoàn thành!",
-      });
+      return res
+        .status(400)
+        .json({
+          message: "Không thể hủy đơn đang thực hiện hoặc đã hoàn thành!",
+        });
 
     order.status = ORDER_STATUS.CANCELLED;
     await order.save();
