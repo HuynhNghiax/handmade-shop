@@ -18,32 +18,77 @@ const STATUS_COLOR = {
 };
 
 //  Sub-components 
+const STEP_CONFIG = [
+  { status: 'Đang tìm thợ', icon: 'ti-user-search', label: 'Tìm thợ', sub: 'Chờ báo giá' },
+  { status: 'Đã chọn thợ', icon: 'ti-user-check', label: 'Đã chọn thợ', sub: 'Thợ chuẩn bị' },
+  { status: 'Đang thực hiện', icon: 'ti-hammer', label: 'Đang làm', sub: 'Thợ đang làm' },
+  { status: 'Chờ xác nhận', icon: 'ti-package-export', label: 'Đang giao', sub: 'Chờ bạn xác nhận' },
+  { status: 'Hoàn thành', icon: 'ti-circle-check', label: 'Hoàn thành', sub: 'Đã nhận hàng' },
+];
+
 const StatusTimeline = ({ current }) => {
-  const idx = STATUS_STEPS.indexOf(current);
+  const idx = STEP_CONFIG.findIndex(s => s.status === current);
+
   if (current === 'Đã hủy') return (
     <div className="flex items-center gap-2 px-4 py-2 bg-gray-100 rounded-full w-fit">
       <span className="size-2 bg-gray-400 rounded-full" />
       <span className="text-xs font-bold text-gray-500 uppercase">Đã hủy</span>
     </div>
   );
+
   return (
-    <div className="flex items-center gap-0 overflow-x-auto pb-2">
-      {STATUS_STEPS.map((step, i) => (
-        <React.Fragment key={step}>
-          <div className={`flex flex-col items-center flex-shrink-0 ${i <= idx ? 'opacity-100' : 'opacity-30'}`}>
-            <div className={`size-8 rounded-full flex items-center justify-center text-[10px] font-black border-2 transition-all
-              ${i < idx ? 'bg-pink-500 border-pink-500 text-white' :
-                i === idx ? 'bg-white border-pink-500 text-pink-500 shadow-md' :
-                  'bg-gray-100 border-gray-200 text-gray-400'}`}>
-              {i < idx ? '✓' : i + 1}
+    <div className="flex items-start overflow-x-auto pb-2 gap-0">
+      {STEP_CONFIG.map((step, i) => {
+        const done = i < idx;
+        const active = i === idx;
+        const pending = i > idx;
+
+        return (
+          <React.Fragment key={step.status}>
+            {/* Step node */}
+            <div className="flex flex-col items-center flex-shrink-0">
+              <div className={`size-10 rounded-full flex items-center justify-center text-lg border-2 transition-all
+                ${done ? 'bg-green-50 border-green-500 text-green-600' : ''}
+                ${active ? 'bg-white border-purple-500 text-purple-600 shadow-[0_0_0_4px_#ede9fe]' : ''}
+                ${pending ? 'bg-gray-100 border-gray-200 text-gray-400' : ''}
+              `}>
+                {done
+                  ? <svg className="size-5 text-green-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}><path strokeLinecap="round" strokeLinejoin="round" d="M4.5 12.75l6 6 9-13.5" /></svg>
+                  : <i className={`ti ${step.icon} text-base`} aria-hidden="true" />
+                }
+              </div>
+
+              <p className={`text-[10px] font-bold mt-2 text-center w-20 leading-tight
+                ${pending ? 'text-gray-400' : 'text-gray-800'}`}>
+                {step.label}
+              </p>
+
+              {done && (
+                <span className="text-[8px] bg-green-50 text-green-700 rounded-full px-2 py-0.5 mt-1 font-bold">
+                  Xong
+                </span>
+              )}
+              {active && (
+                <span className="text-[8px] bg-purple-50 text-purple-600 rounded-full px-2 py-0.5 mt-1 font-bold animate-pulse">
+                  Hiện tại
+                </span>
+              )}
+              {pending && (
+                <p className="text-[9px] text-gray-400 text-center w-20 leading-tight mt-0.5">
+                  {step.sub}
+                </p>
+              )}
             </div>
-            <p className="text-[8px] font-bold uppercase mt-1 text-center w-16 leading-tight text-gray-500">{step}</p>
-          </div>
-          {i < STATUS_STEPS.length - 1 && (
-            <div className={`h-0.5 w-8 flex-shrink-0 mx-1 mb-4 transition-all ${i < idx ? 'bg-pink-400' : 'bg-gray-200'}`} />
-          )}
-        </React.Fragment>
-      ))}
+
+            {/* Connector */}
+            {i < STEP_CONFIG.length - 1 && (
+              <div className={`h-0.5 w-9 flex-shrink-0 mx-1 mt-5 rounded-full transition-all
+                ${i < idx ? 'bg-green-400' : 'bg-gray-200'}`}
+              />
+            )}
+          </React.Fragment>
+        );
+      })}
     </div>
   );
 };

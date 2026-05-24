@@ -8,10 +8,13 @@ const TABS = [
   { id: 'analytics', icon: '📊', label: 'Báo cáo' },
   { id: 'orders', icon: '📦', label: 'Đơn hàng' },
   { id: 'commission', icon: '💰', label: 'Hoa hồng' },
+  { id: 'debt', icon: '💳', label: 'Công nợ' },
   { id: 'makers', icon: '🧶', label: 'Thợ' },
   { id: 'users', icon: '👥', label: 'Người dùng' },
   { id: 'logs', icon: '🕵️', label: 'Nhật ký' },
 ];
+
+const fmt = (n) => (n || 0).toLocaleString('vi-VN') + 'đ';
 
 const AdminDashboard = () => {
   const { user } = useContext(AuthContext);
@@ -20,33 +23,35 @@ const AdminDashboard = () => {
   const [tab, setTab] = useState('analytics');
   const [data, setData] = useState({ orders: [], users: [], logs: [] });
   const [makers, setMakers] = useState({ pending: [], all: [] });
-  const [stats, setStats] = useState(null);   // từ /api/admin/stats
-  const [commission, setCommission] = useState([]); // từ /api/admin/commission
+  const [stats, setStats] = useState(null);
+  const [commission, setCommission] = useState([]);
+  const [debts, setDebts] = useState([]);
+  const [debtFilter, setDebtFilter] = useState('chua_thu');
   const [loading, setLoading] = useState(true);
+  const [markingId, setMarkingId] = useState(null);
 
   const headers = () => ({ headers: { token: `Bearer ${user?.accessToken}` } });
 
   const fetchAll = async () => {
     setLoading(true);
     try {
-      const [orderRes, userRes, logRes, statsRes, commRes, pendingRes, allMakerRes] = await Promise.all([
-        axios.get('http://localhost:5000/api/orders', headers()),
-        axios.get('http://localhost:5000/api/users', headers()),
-        axios.get('http://localhost:5000/api/logs', headers()),
-        axios.get('http://localhost:5000/api/admin/stats', headers()),
-        axios.get('http://localhost:5000/api/admin/commission', headers()),
-        axios.get('http://localhost:5000/api/makers/admin/pending', headers()),
-        axios.get('http://localhost:5000/api/makers/admin/all', headers()),
-      ]);
+      const [orderRes, userRes, logRes, statsRes, commRes, pendingRes, allMakerRes, debtRes] =
+        await Promise.all([
+          axios.get('http://localhost:5000/api/orders', headers()),
+          axios.get('http://localhost:5000/api/users', headers()),
+          axios.get('http://localhost:5000/api/logs', headers()),
+          axios.get('http://localhost:5000/api/admin/stats', headers()),
+          axios.get('http://localhost:5000/api/admin/commission', headers()),
+          axios.get('http://localhost:5000/api/makers/admin/pending', headers()),
+          axios.get('http://localhost:5000/api/makers/admin/all', headers()),
+          axios.get('http://localhost:5000/api/admin/debts', headers()),
+        ]);
 
-      setData({
-        orders: orderRes.data || [],
-        users: userRes.data || [],
-        logs: logRes.data || [],
-      });
+      setData({ orders: orderRes.data || [], users: userRes.data || [], logs: logRes.data || [] });
       setStats(statsRes.data);
       setCommission(commRes.data || []);
       setMakers({ pending: pendingRes.data || [], all: allMakerRes.data || [] });
+      setDebts(debtRes.data || []);
     } catch (err) {
       console.error('[AdminDashboard] fetchAll:', err.response?.status);
     } finally {
@@ -82,9 +87,8 @@ const AdminDashboard = () => {
   };
 
   const banMaker = async (id, isBanned, name) => {
-    const action = isBanned ? 'khóa' : 'mở khóa';
-    const reason = isBanned ? window.prompt(`Lý do ${action} thợ ${name}?`) : null;
-    if (isBanned && reason === null) return; // user cancel prompt
+    const reason = isBanned ? window.prompt(`Lý do khóa thợ ${name}?`) : null;
+    if (isBanned && reason === null) return;
     try {
       await axios.put(`http://localhost:5000/api/admin/makers/${id}/ban`, { isBanned, banReason: reason }, headers());
       fetchAll();
@@ -100,11 +104,36 @@ const AdminDashboard = () => {
     } catch (err) { alert(err.response?.data?.message || 'Lỗi!'); }
   };
 
+  const markDebtPaid = async (debtId, makerName, amount) => {
+    const note = window.prompt(`Xác nhận đã thu ${amount.toLocaleString('vi-VN')}đ từ ${makerName}?\n\nGhi chú (số CK, nội dung...):`, '');
+    if (note === null) return;
+    setMarkingId(debtId);
+    try {
+      await axios.put(`http://localhost:5000/api/admin/debts/${debtId}/mark-paid`, { note }, headers());
+      fetchAll();
+    } catch (err) {
+      alert(err.response?.data?.message || 'Lỗi xác nhận!');
+    } finally {
+      setMarkingId(null);
+    }
+  };
+
   if (loading) return (
     <div className="h-screen flex items-center justify-center font-serif italic text-pink-400 text-2xl animate-pulse">
       Đang nạp dữ liệu...
     </div>
   );
+
+  // Tổng hợp số liệu công nợ
+  const totalPending = debts.reduce((s, m) => s + m.totalPending, 0);
+  const totalPaid = debts.reduce((s, m) => s + m.totalPaid, 0);
+  const makersOwing = debts.filter(m => m.totalPending > 0).length;
+
+  // Lọc debts theo tab
+  const filteredDebts = debts.map(maker => ({
+    ...maker,
+    debts: maker.debts.filter(d => debtFilter === 'all' || d.status === debtFilter),
+  })).filter(maker => maker.debts.length > 0);
 
   return (
     <div className="min-h-screen bg-gray-50 flex font-sans text-gray-900">
@@ -130,6 +159,11 @@ const AdminDashboard = () => {
                   {makers.pending.length}
                 </span>
               )}
+              {t.id === 'debt' && makersOwing > 0 && (
+                <span className="ml-auto bg-red-400 text-white size-5 rounded-full flex items-center justify-center text-[8px] font-black">
+                  {makersOwing}
+                </span>
+              )}
             </button>
           ))}
           <div className="my-6 border-t border-white/5" />
@@ -146,36 +180,33 @@ const AdminDashboard = () => {
       <main className="ml-72 flex-grow p-16">
         <div className="max-w-6xl mx-auto">
 
-          {/*  ANALYTICS  */}
+          {/* ANALYTICS */}
           {tab === 'analytics' && (
             <div className="space-y-8">
               <h3 className="text-2xl font-bold">Tổng quan cửa hàng</h3>
-
-              {/* Stats cards */}
               <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
                 <div className="bg-white rounded-2xl p-6 border border-gray-100">
                   <p className="text-xs text-gray-400 font-medium uppercase tracking-wide mb-2">Doanh thu shop</p>
-                  <p className="text-2xl font-bold text-pink-500">{stats?.revenue?.regular?.toLocaleString('vi-VN') || 0}đ</p>
+                  <p className="text-2xl font-bold text-pink-500">{fmt(stats?.revenue?.regular)}</p>
                   <p className="text-[9px] text-gray-400 mt-1">Từ bán sản phẩm</p>
                 </div>
                 <div className="bg-white rounded-2xl p-6 border border-gray-100">
                   <p className="text-xs text-gray-400 font-medium uppercase tracking-wide mb-2">Hoa hồng sàn</p>
-                  <p className="text-2xl font-bold text-green-600">{stats?.revenue?.commission?.toLocaleString('vi-VN') || 0}đ</p>
+                  <p className="text-2xl font-bold text-green-600">{fmt(stats?.revenue?.commission)}</p>
                   <p className="text-[9px] text-gray-400 mt-1">Từ đơn gia công</p>
                 </div>
                 <div className="bg-gray-950 rounded-2xl p-6">
                   <p className="text-xs text-gray-400 font-medium uppercase tracking-wide mb-2">Tổng doanh thu</p>
-                  <p className="text-2xl font-bold text-white">{stats?.revenue?.total?.toLocaleString('vi-VN') || 0}đ</p>
+                  <p className="text-2xl font-bold text-white">{fmt(stats?.revenue?.total)}</p>
                   <p className="text-[9px] text-gray-500 mt-1">Tất cả nguồn</p>
                 </div>
-                <div className="bg-white rounded-2xl p-6 border border-gray-100">
-                  <p className="text-xs text-gray-400 font-medium uppercase tracking-wide mb-2">GMV gia công</p>
-                  <p className="text-2xl font-bold text-purple-500">{stats?.customOrders?.gmv?.toLocaleString('vi-VN') || 0}đ</p>
-                  <p className="text-[9px] text-gray-400 mt-1">Tổng giá trị qua sàn</p>
+                <div className="bg-red-50 rounded-2xl p-6 border border-red-100">
+                  <p className="text-xs text-red-400 font-medium uppercase tracking-wide mb-2">Chưa thu được</p>
+                  <p className="text-2xl font-bold text-red-500">{fmt(stats?.debt?.pendingAmount)}</p>
+                  <p className="text-[9px] text-red-300 mt-1">{stats?.debt?.pendingCount || 0} khoản đang chờ</p>
                 </div>
               </div>
 
-              {/* Đơn gần đây */}
               <div className="bg-white rounded-3xl border border-gray-100 overflow-hidden">
                 <div className="px-6 py-4 border-b border-gray-100">
                   <p className="font-semibold">Đơn hàng gần đây</p>
@@ -190,9 +221,9 @@ const AdminDashboard = () => {
                   </thead>
                   <tbody className="divide-y divide-gray-50">
                     {data.orders.slice(0, 5).map(o => (
-                      <tr key={o.id} className="hover:bg-gray-50 transition-colors">
+                      <tr key={o.id} className="hover:bg-gray-50">
                         <td className="px-6 py-4"><p className="font-medium">{o.address}</p><p className="text-xs text-gray-400">{o.phone}</p></td>
-                        <td className="px-6 py-4 font-semibold text-pink-500">{o.totalAmount.toLocaleString('vi-VN')}đ</td>
+                        <td className="px-6 py-4 font-semibold text-pink-500">{fmt(o.totalAmount)}</td>
                         <td className="px-6 py-4">
                           <span className={`inline-flex px-3 py-1 rounded-lg text-xs font-semibold
                             ${o.status === 'Hoàn thành' ? 'bg-green-50 text-green-600' :
@@ -208,17 +239,15 @@ const AdminDashboard = () => {
             </div>
           )}
 
-          {/*  COMMISSION  */}
+          {/* COMMISSION */}
           {tab === 'commission' && (
             <div className="space-y-6">
               <h3 className="text-2xl font-bold">Hoa hồng từ đơn gia công</h3>
-
-              {/* Tổng kết */}
               <div className="grid grid-cols-3 gap-4">
                 {[
                   { label: 'Tổng đơn hoàn thành', value: commission.length },
-                  { label: 'GMV qua sàn', value: `${commission.reduce((s, o) => s + (o.agreedPrice || 0), 0).toLocaleString('vi-VN')}đ` },
-                  { label: 'Tổng shop thu', value: `${commission.reduce((s, o) => s + (o.shopEarning || 0), 0).toLocaleString('vi-VN')}đ`, highlight: true },
+                  { label: 'GMV qua sàn', value: fmt(commission.reduce((s, o) => s + (o.agreedPrice || 0), 0)) },
+                  { label: 'Tổng shop thu', value: fmt(commission.reduce((s, o) => s + (o.shopEarning || 0), 0)), highlight: true },
                 ].map(s => (
                   <div key={s.label} className={`rounded-2xl p-5 ${s.highlight ? 'bg-pink-500 text-white' : 'bg-gray-100'}`}>
                     <p className={`text-xs font-medium mb-1 ${s.highlight ? 'text-pink-100' : 'text-gray-400'}`}>{s.label}</p>
@@ -226,8 +255,6 @@ const AdminDashboard = () => {
                   </div>
                 ))}
               </div>
-
-              {/* Bảng chi tiết */}
               <div className="bg-white rounded-3xl border border-gray-100 overflow-hidden">
                 <table className="w-full text-sm">
                   <thead className="bg-gray-50 border-b border-gray-100">
@@ -239,14 +266,14 @@ const AdminDashboard = () => {
                   </thead>
                   <tbody className="divide-y divide-gray-50">
                     {commission.map(o => (
-                      <tr key={o.id} className="hover:bg-gray-50 transition-colors">
-                        <td className="px-4 py-3 font-medium text-gray-900 max-w-32 truncate">{o.title}</td>
+                      <tr key={o.id} className="hover:bg-gray-50">
+                        <td className="px-4 py-3 font-medium max-w-32 truncate">{o.title}</td>
                         <td className="px-4 py-3 text-gray-500 text-xs">{o.customerName}</td>
                         <td className="px-4 py-3 text-gray-500 text-xs">{o.makerName}</td>
-                        <td className="px-4 py-3 font-semibold">{o.agreedPrice?.toLocaleString('vi-VN')}đ</td>
+                        <td className="px-4 py-3 font-semibold">{fmt(o.agreedPrice)}</td>
                         <td className="px-4 py-3 text-gray-400">{o.commissionRate}%</td>
-                        <td className="px-4 py-3 font-bold text-pink-500">{o.shopEarning?.toLocaleString('vi-VN')}đ</td>
-                        <td className="px-4 py-3 font-bold text-green-600">{o.makerEarning?.toLocaleString('vi-VN')}đ</td>
+                        <td className="px-4 py-3 font-bold text-pink-500">{fmt(o.shopEarning)}</td>
+                        <td className="px-4 py-3 font-bold text-green-600">{fmt(o.makerEarning)}</td>
                         <td className="px-4 py-3 text-xs text-gray-400">{new Date(o.completedAt).toLocaleDateString('vi-VN')}</td>
                       </tr>
                     ))}
@@ -259,11 +286,150 @@ const AdminDashboard = () => {
             </div>
           )}
 
-          {/*  MAKERS  */}
+          {/* CÔNG NỢ */}
+          {tab === 'debt' && (
+            <div className="space-y-6">
+              <h3 className="text-2xl font-bold">Quản lý công nợ hoa hồng</h3>
+
+              {/* Stats */}
+              <div className="grid grid-cols-3 gap-4">
+                <div className="bg-red-50 border border-red-100 rounded-2xl p-5">
+                  <p className="text-xs text-red-400 font-medium uppercase tracking-wide mb-1">Chưa thu được</p>
+                  <p className="text-2xl font-bold text-red-500">{fmt(totalPending)}</p>
+                  <p className="text-[9px] text-red-400 mt-1">{makersOwing} thợ đang nợ</p>
+                </div>
+                <div className="bg-green-50 border border-green-100 rounded-2xl p-5">
+                  <p className="text-xs text-green-600 font-medium uppercase tracking-wide mb-1">Đã thu được</p>
+                  <p className="text-2xl font-bold text-green-600">{fmt(totalPaid)}</p>
+                  <p className="text-[9px] text-green-400 mt-1">Tất cả thời gian</p>
+                </div>
+                <div className="bg-gray-950 rounded-2xl p-5">
+                  <p className="text-xs text-gray-400 font-medium uppercase tracking-wide mb-1">Tổng hoa hồng</p>
+                  <p className="text-2xl font-bold text-white">{fmt(totalPending + totalPaid)}</p>
+                  <p className="text-[9px] text-gray-500 mt-1">Đã phát sinh</p>
+                </div>
+              </div>
+
+              {/* Filter */}
+              <div className="flex gap-2">
+                {[
+                  { key: 'chua_thu', label: '⏳ Chưa thu' },
+                  { key: 'da_thu', label: '✅ Đã thu' },
+                  { key: 'all', label: '📋 Tất cả' },
+                ].map(f => (
+                  <button
+                    key={f.key}
+                    onClick={() => setDebtFilter(f.key)}
+                    className={`px-5 py-2 rounded-full text-xs font-bold transition-all ${debtFilter === f.key ? 'bg-gray-950 text-white' : 'bg-gray-100 text-gray-500 hover:bg-gray-200'
+                      }`}
+                  >
+                    {f.label}
+                  </button>
+                ))}
+              </div>
+
+              {/* Danh sách theo thợ */}
+              <div className="space-y-4">
+                {filteredDebts.length === 0 && (
+                  <div className="text-center py-16 bg-white rounded-3xl border border-gray-100">
+                    <p className="text-gray-400 italic font-serif">Không có khoản nào.</p>
+                  </div>
+                )}
+
+                {filteredDebts.map(maker => (
+                  <div key={maker.makerId} className="bg-white rounded-3xl border border-gray-100 overflow-hidden">
+                    {/* Header thợ */}
+                    <div className="px-6 py-4 bg-gray-50 border-b border-gray-100 flex items-center justify-between">
+                      <div className="flex items-center gap-3">
+                        {maker.makerAvatar ? (
+                          <img src={maker.makerAvatar} alt="" className="size-9 rounded-full object-cover" />
+                        ) : (
+                          <div className="size-9 bg-pink-100 text-pink-500 rounded-full flex items-center justify-center font-bold text-sm">
+                            {maker.makerName?.charAt(0)}
+                          </div>
+                        )}
+                        <div>
+                          <p className="font-bold text-gray-950 text-sm">{maker.makerName}</p>
+                          <p className="text-[10px] text-gray-400">{maker.makerEmail}</p>
+                        </div>
+                      </div>
+                      <div className="flex items-center gap-6 text-right">
+                        {maker.totalPending > 0 && (
+                          <div>
+                            <p className="text-[9px] text-red-400 font-bold uppercase">Đang nợ</p>
+                            <p className="font-black text-red-500">{fmt(maker.totalPending)}</p>
+                          </div>
+                        )}
+                        {maker.totalPaid > 0 && (
+                          <div>
+                            <p className="text-[9px] text-green-500 font-bold uppercase">Đã trả</p>
+                            <p className="font-black text-green-600">{fmt(maker.totalPaid)}</p>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+
+                    {/* Chi tiết từng đơn */}
+                    <table className="w-full text-sm">
+                      <thead className="border-b border-gray-50">
+                        <tr>
+                          {['Đơn gia công', 'Giá chốt', 'Phí', 'Ngày HT', 'Trạng thái', ''].map(h => (
+                            <th key={h} className="text-left px-6 py-3 text-xs font-semibold text-gray-400 uppercase tracking-wide">{h}</th>
+                          ))}
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-gray-50">
+                        {maker.debts.map(debt => (
+                          <tr key={debt.id} className="hover:bg-gray-50">
+                            <td className="px-6 py-3">
+                              <a href={`/custom-order/${debt.orderId}`} className="font-medium text-gray-900 hover:text-pink-500 transition-colors">
+                                {debt.orderTitle}
+                              </a>
+                            </td>
+                            <td className="px-6 py-3 text-gray-500">{fmt(debt.agreedPrice)}</td>
+                            <td className="px-6 py-3">
+                              <span className="font-bold text-pink-500">{fmt(debt.amount)}</span>
+                              <span className="text-[10px] text-gray-400 ml-1">({debt.commissionRate}%)</span>
+                            </td>
+                            <td className="px-6 py-3 text-xs text-gray-400">
+                              {new Date(debt.completedAt).toLocaleDateString('vi-VN')}
+                            </td>
+                            <td className="px-6 py-3">
+                              {debt.status === 'chua_thu' ? (
+                                <span className="inline-flex px-3 py-1 rounded-lg text-xs font-semibold bg-red-50 text-red-500">Chưa thu</span>
+                              ) : (
+                                <div>
+                                  <span className="inline-flex px-3 py-1 rounded-lg text-xs font-semibold bg-green-50 text-green-600">Đã thu</span>
+                                  {debt.paidAt && <p className="text-[9px] text-gray-400 mt-0.5">{new Date(debt.paidAt).toLocaleDateString('vi-VN')}</p>}
+                                  {debt.note && <p className="text-[9px] text-gray-400 italic">{debt.note}</p>}
+                                </div>
+                              )}
+                            </td>
+                            <td className="px-6 py-3 text-right">
+                              {debt.status === 'chua_thu' && (
+                                <button
+                                  onClick={() => markDebtPaid(debt.id, maker.makerName, debt.amount)}
+                                  disabled={markingId === debt.id}
+                                  className="bg-gray-950 text-white px-4 py-1.5 rounded-xl text-xs font-bold hover:bg-green-600 transition-colors disabled:opacity-50"
+                                >
+                                  {markingId === debt.id ? '...' : 'Xác nhận đã thu ✓'}
+                                </button>
+                              )}
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* MAKERS */}
           {tab === 'makers' && (
             <div className="space-y-8">
               <h3 className="text-2xl font-bold">Quản lý thợ thủ công</h3>
-
               <div className="grid grid-cols-3 gap-4">
                 {[
                   { label: 'Chờ duyệt', value: makers.pending.length, color: 'text-yellow-500' },
@@ -277,7 +443,6 @@ const AdminDashboard = () => {
                 ))}
               </div>
 
-              {/* Pending */}
               {makers.pending.length > 0 && (
                 <div className="bg-white rounded-3xl border border-yellow-100 overflow-hidden">
                   <div className="px-6 py-4 border-b border-yellow-100 bg-yellow-50 flex items-center gap-2">
@@ -286,12 +451,12 @@ const AdminDashboard = () => {
                   </div>
                   <div className="divide-y divide-gray-50">
                     {makers.pending.map(m => (
-                      <div key={m.id} className="px-6 py-5 flex items-start gap-4 hover:bg-gray-50 transition-colors">
+                      <div key={m.id} className="px-6 py-5 flex items-start gap-4 hover:bg-gray-50">
                         <div className="size-12 bg-pink-100 text-pink-500 rounded-full flex items-center justify-center font-bold flex-shrink-0">
                           {m.User?.name?.charAt(0)}
                         </div>
                         <div className="flex-1">
-                          <p className="font-bold text-gray-950">{m.User?.name}</p>
+                          <p className="font-bold">{m.User?.name}</p>
                           <p className="text-xs text-gray-400">{m.User?.email}</p>
                           {m.skills && (
                             <div className="flex flex-wrap gap-1.5 mt-2">
@@ -302,8 +467,8 @@ const AdminDashboard = () => {
                           )}
                         </div>
                         <div className="flex gap-2 flex-shrink-0">
-                          <button onClick={() => approveMaker(m.id)} className="bg-green-500 text-white px-5 py-2 rounded-xl text-xs font-bold hover:bg-green-600 transition-colors">Duyệt ✓</button>
-                          <button onClick={() => rejectMaker(m.id)} className="border border-red-200 text-red-500 px-5 py-2 rounded-xl text-xs font-bold hover:bg-red-50 transition-colors">Từ chối</button>
+                          <button onClick={() => approveMaker(m.id)} className="bg-green-500 text-white px-5 py-2 rounded-xl text-xs font-bold hover:bg-green-600">Duyệt ✓</button>
+                          <button onClick={() => rejectMaker(m.id)} className="border border-red-200 text-red-500 px-5 py-2 rounded-xl text-xs font-bold hover:bg-red-50">Từ chối</button>
                         </div>
                       </div>
                     ))}
@@ -311,10 +476,9 @@ const AdminDashboard = () => {
                 </div>
               )}
 
-              {/* All makers */}
               <div className="bg-white rounded-3xl border border-gray-100 overflow-hidden">
                 <div className="px-6 py-4 border-b border-gray-100">
-                  <p className="font-semibold text-gray-900">Tất cả thợ ({makers.all.length})</p>
+                  <p className="font-semibold">Tất cả thợ ({makers.all.length})</p>
                 </div>
                 <table className="w-full text-sm">
                   <thead className="bg-gray-50 border-b border-gray-100">
@@ -326,7 +490,7 @@ const AdminDashboard = () => {
                   </thead>
                   <tbody className="divide-y divide-gray-50">
                     {makers.all.map(m => (
-                      <tr key={m.id} className={`hover:bg-gray-50 transition-colors ${m.isBanned ? 'opacity-60' : ''}`}>
+                      <tr key={m.id} className={`hover:bg-gray-50 ${m.isBanned ? 'opacity-60' : ''}`}>
                         <td className="px-6 py-4">
                           <div className="flex items-center gap-3">
                             <div className="size-9 bg-pink-100 text-pink-500 rounded-full flex items-center justify-center font-bold text-sm flex-shrink-0">
@@ -339,16 +503,11 @@ const AdminDashboard = () => {
                             </div>
                           </div>
                         </td>
-                        <td className="px-6 py-4">
-                          <MakerBadge badge={m.badge} badgeEmoji={m.badgeEmoji} />
-                        </td>
+                        <td className="px-6 py-4"><MakerBadge badge={m.badge} badgeEmoji={m.badgeEmoji} /></td>
                         <td className="px-6 py-4 font-bold">{m.rating > 0 ? `⭐ ${m.rating.toFixed(1)}` : '—'}</td>
                         <td className="px-6 py-4 font-bold">{m.totalDone}</td>
                         <td className="px-6 py-4">
-                          <button
-                            onClick={() => updateCommissionRate(m.id, m.User?.name)}
-                            className="text-pink-500 font-bold hover:underline"
-                          >
+                          <button onClick={() => updateCommissionRate(m.id, m.User?.name)} className="text-pink-500 font-bold hover:underline">
                             {m.commissionRate}%
                           </button>
                         </td>
@@ -363,9 +522,7 @@ const AdminDashboard = () => {
                           <button
                             onClick={() => banMaker(m.id, !m.isBanned, m.User?.name)}
                             className={`text-xs font-bold px-3 py-1.5 rounded-lg border transition-colors
-                              ${m.isBanned
-                                ? 'border-green-200 text-green-600 hover:bg-green-50'
-                                : 'border-red-200 text-red-500 hover:bg-red-50'}`}
+                              ${m.isBanned ? 'border-green-200 text-green-600 hover:bg-green-50' : 'border-red-200 text-red-500 hover:bg-red-50'}`}
                           >
                             {m.isBanned ? 'Mở khóa' : 'Khóa'}
                           </button>
@@ -378,7 +535,7 @@ const AdminDashboard = () => {
             </div>
           )}
 
-          {/*  ORDERS, USERS, LOGS */}
+          {/* ORDERS */}
           {tab === 'orders' && (
             <div className="space-y-6">
               <h3 className="text-2xl font-bold">Quản lý đơn hàng</h3>
@@ -393,9 +550,9 @@ const AdminDashboard = () => {
                   </thead>
                   <tbody className="divide-y divide-gray-50">
                     {data.orders.map(o => (
-                      <tr key={o.id} className="hover:bg-gray-50 transition-colors">
+                      <tr key={o.id} className="hover:bg-gray-50">
                         <td className="px-6 py-4"><p className="font-medium">{o.address}</p><p className="text-xs text-gray-400">{o.phone}</p></td>
-                        <td className="px-6 py-4 font-semibold text-pink-500">{o.totalAmount.toLocaleString('vi-VN')}đ</td>
+                        <td className="px-6 py-4 font-semibold text-pink-500">{fmt(o.totalAmount)}</td>
                         <td className="px-6 py-4 text-xs text-gray-400">{new Date(o.createdAt).toLocaleDateString('vi-VN')}</td>
                         <td className="px-6 py-4">
                           <span className={`inline-flex px-3 py-1 rounded-lg text-xs font-semibold
@@ -423,6 +580,7 @@ const AdminDashboard = () => {
             </div>
           )}
 
+          {/* USERS */}
           {tab === 'users' && (
             <div className="space-y-6">
               <h3 className="text-2xl font-bold">Quản lý người dùng</h3>
@@ -437,7 +595,7 @@ const AdminDashboard = () => {
                   </thead>
                   <tbody className="divide-y divide-gray-50">
                     {data.users.map(u => (
-                      <tr key={u.id} className="hover:bg-gray-50 transition-colors">
+                      <tr key={u.id} className="hover:bg-gray-50">
                         <td className="px-6 py-4">
                           <div className="flex items-center gap-3">
                             <div className="size-9 bg-pink-100 text-pink-600 rounded-full flex items-center justify-center text-sm font-bold flex-shrink-0">
@@ -461,6 +619,7 @@ const AdminDashboard = () => {
             </div>
           )}
 
+          {/* LOGS */}
           {tab === 'logs' && (
             <div className="space-y-6">
               <h3 className="text-2xl font-bold">Nhật ký hoạt động</h3>
@@ -475,7 +634,7 @@ const AdminDashboard = () => {
                   </thead>
                   <tbody className="divide-y divide-gray-50">
                     {data.logs.map(log => (
-                      <tr key={log.id} className="hover:bg-gray-50 transition-colors">
+                      <tr key={log.id} className="hover:bg-gray-50">
                         <td className="px-6 py-4"><div className={`size-2 rounded-full mx-auto ${log.status === 'Bị chặn' ? 'bg-red-400' : 'bg-green-400'}`} /></td>
                         <td className="px-6 py-4 font-medium">{log.userName}</td>
                         <td className="px-6 py-4"><p className="font-medium">{log.action}</p><p className="text-xs text-gray-400 italic mt-0.5">{log.details}</p></td>
