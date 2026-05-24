@@ -22,6 +22,8 @@ import AdminDashboard from './pages/AdminDashboard';
 import AdminProductManager from './pages/AdminProductManager';
 import ProtectedRoute from './components/ProtectedRoute';
 
+import MakerDashboard from './pages/MakerDashboard';
+
 function App() {
   return (
     <Router>
@@ -41,6 +43,7 @@ function App() {
         <Route path="/become-maker" element={<BecomeMaker />} />
         <Route path="/makers" element={<MakerList />} />
         <Route path="/maker/:id" element={<MakerProfile />} />
+        <Route path="/maker-dashboard" element={<MakerDashboard />} />
 
         {/*  AUTH  */}
         <Route path="/login" element={<Login />} />
