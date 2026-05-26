@@ -49,22 +49,13 @@ const CustomOrder = sequelize.define(
       allowNull: true,
       comment: "Tiền thợ thực nhận = agreedPrice - commissionAmount",
     },
-    //  ZaloPay fields
-    zpTransId: {
-      type: DataTypes.STRING,
-      allowNull: true,
-      comment: "app_trans_id gửi cho ZaloPay, dùng để đối soát callback",
-    },
+    // ZaloPay fields
+    zpTransId: { type: DataTypes.STRING, allowNull: true },
     paymentStatus: {
       type: DataTypes.ENUM("unpaid", "paid", "refunded"),
       defaultValue: "unpaid",
-      comment: "unpaid = chưa thanh toán | paid = đã TT qua ZaloPay",
     },
-    zpPaidAt: {
-      type: DataTypes.DATE,
-      allowNull: true,
-      comment: "Thời điểm ZaloPay confirm thanh toán thành công",
-    },
+    zpPaidAt: { type: DataTypes.DATE, allowNull: true },
   },
   {
     timestamps: true,

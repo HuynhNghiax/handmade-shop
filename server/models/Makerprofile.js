@@ -18,6 +18,15 @@ const MakerProfile = sequelize.define(
         return Array.isArray(val) ? val : [];
       },
     },
+
+    //  THÔNG TIN NGÂN HÀNG (để admin chuyển tiền)
+    bankInfo: {
+      type: DataTypes.STRING,
+      allowNull: true,
+      comment:
+        "Số tài khoản NH - Tên ngân hàng - Tên chủ TK. VD: 12345678 - Vietcombank - Nguyen Van A",
+    },
+
     status: {
       type: DataTypes.ENUM("cho_duyet", "da_duyet", "tu_choi"),
       defaultValue: "cho_duyet",
@@ -47,7 +56,7 @@ const MakerProfile = sequelize.define(
     commissionRate: {
       type: DataTypes.FLOAT,
       defaultValue: COMMISSION.DEFAULT_RATE,
-      comment: `Tỷ lệ % shop thu. Default = ${COMMISSION.DEFAULT_RATE}%. Admin có thể chỉnh theo từng thợ.`,
+      comment: `Tỷ lệ % shop thu. Default = ${COMMISSION.DEFAULT_RATE}%. Admin có thể chỉnh.`,
       validate: {
         min: COMMISSION.MIN_RATE,
         max: COMMISSION.MAX_RATE,
@@ -66,12 +75,6 @@ const MakerProfile = sequelize.define(
   },
 );
 
-/**
- * Helper: tính lại badge và lưu vào DB
- * Gọi mỗi khi totalDone hoặc rating thay đổi
- *
- * @param {MakerProfile} profile - Instance của MakerProfile
- */
 MakerProfile.prototype.recalculateBadge = async function () {
   const tier = MAKER_BADGE.calculate(this.totalDone, this.rating);
   this.badge = tier.label;

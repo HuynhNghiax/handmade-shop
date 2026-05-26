@@ -33,16 +33,10 @@ const send = async ({ to, subject, html }) => {
       html,
     });
   } catch (err) {
-    // Không throw để lỗi email không làm crash API
     console.error("❌ Lỗi gửi email:", err.message);
   }
 };
 
-// ── TEMPLATES ────────────────────────────────────────────────────────────────
-
-/**
- * Gửi cho KHÁCH khi có báo giá mới vào đơn của họ
- */
 exports.notifyNewBid = ({
   to,
   customerName,
@@ -63,16 +57,12 @@ exports.notifyNewBid = ({
           ${Number(bidPrice).toLocaleString("vi-VN")}đ
         </p>
       </div>
-      <p>Vào xem và chọn báo giá phù hợp nhé!</p>
       <a href="${orderUrl}" style="display:inline-block; background:#f43f5e; color:white; padding:12px 24px; border-radius:999px; text-decoration:none; font-weight:bold; margin-top:8px;">
         Xem báo giá ngay →
       </a>
     `),
   });
 
-/**
- * Gửi cho THỢ khi báo giá của họ được chọn
- */
 exports.notifyBidAccepted = ({
   to,
   makerName,
@@ -89,16 +79,12 @@ exports.notifyBidAccepted = ({
       <div style="background:#f0fdf4; border-left: 4px solid #22c55e; padding: 14px 18px; border-radius: 8px; margin: 16px 0;">
         <p style="margin:0; font-size:16px; font-weight:bold;">📦 ${orderTitle}</p>
       </div>
-      <p>Hãy vào xác nhận bắt đầu thực hiện đơn nhé!</p>
       <a href="${orderUrl}" style="display:inline-block; background:#22c55e; color:white; padding:12px 24px; border-radius:999px; text-decoration:none; font-weight:bold; margin-top:8px;">
         Xem đơn của tôi →
       </a>
     `),
   });
 
-/**
- * Gửi cho KHÁCH khi thợ báo hoàn thành (Chờ xác nhận)
- */
 exports.notifyOrderReadyToConfirm = ({
   to,
   customerName,
@@ -108,24 +94,20 @@ exports.notifyOrderReadyToConfirm = ({
 }) =>
   send({
     to,
-    subject: `📦 Đơn "${orderTitle}" đã xong — Vui lòng xác nhận nhận hàng`,
+    subject: `📦 Đơn "${orderTitle}" đã xong — Vui lòng thanh toán`,
     html: wrap(`
       <p>Xin chào <b>${customerName}</b>!</p>
       <p>Thợ <b>${makerName}</b> đã hoàn thành đơn gia công của bạn:</p>
       <div style="background:#fffbeb; border-left: 4px solid #f59e0b; padding: 14px 18px; border-radius: 8px; margin: 16px 0;">
         <p style="margin:0; font-size:16px; font-weight:bold;">📦 ${orderTitle}</p>
-        <p style="margin:6px 0 0; font-size:13px; color:#92400e;">Đang chờ bạn xác nhận đã nhận hàng</p>
+        <p style="margin:6px 0 0; font-size:13px; color:#92400e;">Vui lòng thanh toán qua ZaloPay để hoàn tất</p>
       </div>
-      <p>Sau khi nhận hàng, hãy nhớ đánh giá thợ để giúp cộng đồng nhé!</p>
       <a href="${orderUrl}" style="display:inline-block; background:#f59e0b; color:white; padding:12px 24px; border-radius:999px; text-decoration:none; font-weight:bold; margin-top:8px;">
-        Xác nhận nhận hàng →
+        Thanh toán ngay →
       </a>
     `),
   });
 
-/**
- * Gửi cho KHÁCH khi thợ bắt đầu thực hiện
- */
 exports.notifyOrderStarted = ({
   to,
   customerName,
@@ -149,9 +131,6 @@ exports.notifyOrderStarted = ({
     `),
   });
 
-/**
- * Gửi cho THỢ khi hồ sơ được duyệt
- */
 exports.notifyMakerApproved = ({ to, makerName }) =>
   send({
     to,
@@ -159,21 +138,13 @@ exports.notifyMakerApproved = ({ to, makerName }) =>
     html: wrap(`
       <p>Xin chào <b>${makerName}</b>!</p>
       <p>🎉 Hồ sơ thợ của bạn trên PinkyCrafts đã được <b>Admin phê duyệt</b>.</p>
-      <p>Từ bây giờ bạn có thể:</p>
-      <ul style="color:#4b5563; line-height:2;">
-        <li>Xem và gửi báo giá cho các yêu cầu gia công</li>
-        <li>Nhận đơn và xây dựng hồ sơ thợ của mình</li>
-        <li>Nhận đánh giá từ khách hàng</li>
-      </ul>
-      <a href="${process.env.CLIENT_URL}/custom-order" style="display:inline-block; background:#f43f5e; color:white; padding:12px 24px; border-radius:999px; text-decoration:none; font-weight:bold; margin-top:8px;">
-        Xem đơn gia công ngay →
+      <p><b>Lưu ý quan trọng:</b> Hãy cập nhật <b>thông tin tài khoản ngân hàng</b> trong hồ sơ để nhận tiền từ các đơn gia công.</p>
+      <a href="${process.env.CLIENT_URL}/become-maker" style="display:inline-block; background:#f43f5e; color:white; padding:12px 24px; border-radius:999px; text-decoration:none; font-weight:bold; margin-top:8px;">
+        Cập nhật hồ sơ ngay →
       </a>
     `),
   });
 
-/**
- * Gửi cho THỢ khi hồ sơ bị từ chối
- */
 exports.notifyMakerRejected = ({ to, makerName }) =>
   send({
     to,
@@ -181,9 +152,60 @@ exports.notifyMakerRejected = ({ to, makerName }) =>
     html: wrap(`
       <p>Xin chào <b>${makerName}</b>!</p>
       <p>Rất tiếc, hồ sơ thợ của bạn <b>chưa đạt yêu cầu</b> để được duyệt lần này.</p>
-      <p>Bạn có thể cập nhật lại hồ sơ (bổ sung ảnh portfolio, kỹ năng, giới thiệu chi tiết hơn) và gửi lại để Admin xem xét.</p>
       <a href="${process.env.CLIENT_URL}/become-maker" style="display:inline-block; background:#6b7280; color:white; padding:12px 24px; border-radius:999px; text-decoration:none; font-weight:bold; margin-top:8px;">
         Cập nhật hồ sơ →
+      </a>
+    `),
+  });
+
+// ── MỚI: Thông báo cho thợ khi khách thanh toán thành công ──────────────────
+exports.notifyOrderPaidToMaker = ({
+  to,
+  makerName,
+  customerName,
+  orderTitle,
+  makerEarning,
+  orderUrl,
+}) =>
+  send({
+    to,
+    subject: `💰 Đơn "${orderTitle}" đã được thanh toán — PinkyCrafts`,
+    html: wrap(`
+      <p>Xin chào <b>${makerName}</b>!</p>
+      <p>Khách hàng <b>${customerName}</b> vừa thanh toán thành công qua ZaloPay cho đơn:</p>
+      <div style="background:#f0fdf4; border-left: 4px solid #22c55e; padding: 14px 18px; border-radius: 8px; margin: 16px 0;">
+        <p style="margin:0; font-size:16px; font-weight:bold;">📦 ${orderTitle}</p>
+        <p style="margin:8px 0 0; font-size:20px; color:#16a34a; font-weight:bold;">
+          Bạn nhận được: ${Number(makerEarning).toLocaleString("vi-VN")}đ
+        </p>
+        <p style="margin:6px 0 0; font-size:12px; color:#15803d;">
+          Shop sẽ chuyển khoản cho bạn trong vòng 24-48 giờ làm việc
+        </p>
+      </div>
+      <p>Hãy đảm bảo thông tin tài khoản ngân hàng trong hồ sơ của bạn là chính xác!</p>
+      <a href="${orderUrl}" style="display:inline-block; background:#22c55e; color:white; padding:12px 24px; border-radius:999px; text-decoration:none; font-weight:bold; margin-top:8px;">
+        Xem đơn →
+      </a>
+    `),
+  });
+
+// ── MỚI: Thông báo cho thợ khi admin xác nhận đã chuyển tiền ────────────────
+exports.notifyMakerPaid = ({ to, makerName, amount, orderTitle, note }) =>
+  send({
+    to,
+    subject: `✅ PinkyCrafts đã chuyển tiền cho bạn — ${Number(amount).toLocaleString("vi-VN")}đ`,
+    html: wrap(`
+      <p>Xin chào <b>${makerName}</b>!</p>
+      <p>PinkyCrafts vừa xác nhận đã chuyển khoản thu nhập cho bạn:</p>
+      <div style="background:#f0fdf4; border-left: 4px solid #22c55e; padding: 14px 18px; border-radius: 8px; margin: 16px 0;">
+        <p style="margin:0; font-size:22px; font-weight:bold; color:#16a34a;">
+          💵 ${Number(amount).toLocaleString("vi-VN")}đ
+        </p>
+        ${note ? `<p style="margin:8px 0 0; font-size:13px; color:#374151;">Ghi chú: ${note}</p>` : ""}
+      </div>
+      <p>Vui lòng kiểm tra tài khoản ngân hàng của bạn. Nếu chưa nhận được, hãy liên hệ admin.</p>
+      <a href="${process.env.CLIENT_URL}/maker-dashboard" style="display:inline-block; background:#f43f5e; color:white; padding:12px 24px; border-radius:999px; text-decoration:none; font-weight:bold; margin-top:8px;">
+        Xem bảng điều khiển →
       </a>
     `),
   });
