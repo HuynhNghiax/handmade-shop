@@ -159,11 +159,9 @@ router.post("/:id/bid", verifyToken, async (req, res) => {
       where: { userId: req.user.id, status: "da_duyet" },
     });
     if (!makerProfile)
-      return res
-        .status(403)
-        .json({
-          message: "Bạn cần là thợ được Admin duyệt mới có thể báo giá!",
-        });
+      return res.status(403).json({
+        message: "Bạn cần là thợ được Admin duyệt mới có thể báo giá!",
+      });
 
     if (makerProfile.isBanned)
       return res.status(403).json({
@@ -361,7 +359,7 @@ router.post("/:id/complete", verifyToken, async (req, res) => {
   }
 });
 
-//  KHÁCH XÁC NHẬN NHẬN HÀNG — COMMISSION STEP 2
+//  KHÁCH XÁC NHẬN NHẬN HÀNG — COMMISSION & PAYOUT STEP
 router.post("/:id/confirm", verifyToken, async (req, res) => {
   const t = await sequelize.transaction();
   try {
@@ -402,6 +400,7 @@ router.post("/:id/confirm", verifyToken, async (req, res) => {
       makerProfile.badgeEmoji = tier.emoji;
       await makerProfile.save({ transaction: t });
 
+      // CommissionDebt (phí sàn)
       await CommissionDebt.create(
         {
           makerId: makerProfile.id,
@@ -410,6 +409,21 @@ router.post("/:id/confirm", verifyToken, async (req, res) => {
           agreedPrice: order.agreedPrice,
           commissionRate: order.commissionRate,
           status: "chua_thu",
+        },
+        { transaction: t },
+      );
+
+      // MakerPayout (tiền thợ nhận) ← MỚI
+      const MakerPayout = require("../models/MakerPayout");
+      await MakerPayout.create(
+        {
+          makerId: makerProfile.id,
+          customOrderId: order.id,
+          amount: order.makerEarning || 0,
+          agreedPrice: order.agreedPrice,
+          commissionRate: order.commissionRate,
+          bankInfo: makerProfile.bankInfo || null,
+          status: "cho_tra",
         },
         { transaction: t },
       );
@@ -442,11 +456,9 @@ router.post("/:id/cancel", verifyToken, async (req, res) => {
     if (order.userId !== req.user.id)
       return res.status(403).json({ message: "Bạn không phải chủ đơn này!" });
     if (![ORDER_STATUS.FINDING, ORDER_STATUS.SELECTED].includes(order.status))
-      return res
-        .status(400)
-        .json({
-          message: "Không thể hủy đơn đang thực hiện hoặc đã hoàn thành!",
-        });
+      return res.status(400).json({
+        message: "Không thể hủy đơn đang thực hiện hoặc đã hoàn thành!",
+      });
 
     order.status = ORDER_STATUS.CANCELLED;
     await order.save();

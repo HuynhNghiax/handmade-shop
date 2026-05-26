@@ -6,6 +6,7 @@ const MakerProfile = require("./MakerProfile");
 const Review = require("./Review");
 const Product = require("./Product");
 const CommissionDebt = require("./CommissionDebt");
+const MakerPayout = require("./MakerPayout");
 
 //  User - Order
 User.hasMany(Order, { foreignKey: "userId" });
@@ -79,9 +80,20 @@ CommissionDebt.belongsTo(MakerProfile, {
   foreignKey: "makerId",
   as: "MakerProfile",
 });
-
 CustomOrder.hasOne(CommissionDebt, { foreignKey: "customOrderId", as: "Debt" });
 CommissionDebt.belongsTo(CustomOrder, {
+  foreignKey: "customOrderId",
+  as: "Order",
+});
+
+//  MakerPayout relationships
+MakerProfile.hasMany(MakerPayout, { foreignKey: "makerId", as: "Payouts" });
+MakerPayout.belongsTo(MakerProfile, {
+  foreignKey: "makerId",
+  as: "MakerProfile",
+});
+CustomOrder.hasOne(MakerPayout, { foreignKey: "customOrderId", as: "Payout" });
+MakerPayout.belongsTo(CustomOrder, {
   foreignKey: "customOrderId",
   as: "Order",
 });
@@ -95,4 +107,5 @@ module.exports = {
   Review,
   ProductReview,
   CommissionDebt,
+  MakerPayout,
 };

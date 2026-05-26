@@ -6,9 +6,13 @@
  * PUT  /api/admin/makers/:id/commission
  * PUT  /api/admin/makers/:id/ban
  *
- * Debt management:
- * GET  /api/admin/debts          — Danh sách công nợ, group theo thợ
- * PUT  /api/admin/debts/:id/mark-paid — Xác nhận đã thu tiền
+ * Debt management (phí hoa hồng shop thu):
+ * GET  /api/admin/debts
+ * PUT  /api/admin/debts/:id/mark-paid
+ *
+ * Payout management (tiền shop trả cho thợ):
+ * GET  /api/admin/payouts
+ * PUT  /api/admin/payouts/:id/mark-paid
  */
 
 const router = require("express").Router();
@@ -19,9 +23,11 @@ const CustomOrder = require("../models/CustomOrder");
 const Order = require("../models/Order");
 const MakerProfile = require("../models/MakerProfile");
 const CommissionDebt = require("../models/CommissionDebt");
+const MakerPayout = require("../models/MakerPayout");
 const User = require("../models/User");
 const { verifyAdmin } = require("../middleware/authMiddleware");
 const { COMMISSION } = require("../constants/business");
+const mailer = require("../utils/mailer");
 
 //  STATS
 router.get("/stats", verifyAdmin, async (req, res) => {
@@ -53,12 +59,18 @@ router.get("/stats", verifyAdmin, async (req, res) => {
       where: { status: "cho_duyet" },
     });
 
-    // Tổng nợ chưa thu
     const pendingDebts = await CommissionDebt.findAll({
       where: { status: "chua_thu" },
       attributes: ["amount"],
     });
     const totalDebtPending = pendingDebts.reduce((s, d) => s + d.amount, 0);
+
+    // Tổng tiền chờ trả cho thợ
+    const pendingPayouts = await MakerPayout.findAll({
+      where: { status: "cho_tra" },
+      attributes: ["amount"],
+    });
+    const totalPayoutPending = pendingPayouts.reduce((s, p) => s + p.amount, 0);
 
     res.json({
       revenue: {
@@ -66,14 +78,15 @@ router.get("/stats", verifyAdmin, async (req, res) => {
         commission: commissionRevenue,
         total: regularRevenue + commissionRevenue,
       },
-      customOrders: {
-        gmv: totalCustomGMV,
-        active: activeCustomOrders,
-      },
+      customOrders: { gmv: totalCustomGMV, active: activeCustomOrders },
       makers: { pending: pendingMakers },
       debt: {
         pendingCount: pendingDebts.length,
         pendingAmount: totalDebtPending,
+      },
+      payout: {
+        pendingCount: pendingPayouts.length,
+        pendingAmount: totalPayoutPending,
       },
     });
   } catch (err) {
@@ -117,10 +130,12 @@ router.get("/commission", verifyAdmin, async (req, res) => {
   }
 });
 
-//  CÔNG NỢ: DANH SÁCH ─
+// ══════════════════════════════════════════════════════════════════
+//  CÔNG NỢ (phí hoa hồng thợ nợ shop - dùng trong mô hình COD)
+// ══════════════════════════════════════════════════════════════════
 router.get("/debts", verifyAdmin, async (req, res) => {
   try {
-    const { status } = req.query; // chua_thu | da_thu | (all)
+    const { status } = req.query;
     const where = status ? { status } : {};
 
     const debts = await CommissionDebt.findAll({
@@ -146,7 +161,6 @@ router.get("/debts", verifyAdmin, async (req, res) => {
       order: [["createdAt", "DESC"]],
     });
 
-    // Group theo thợ để dễ hiển thị
     const grouped = {};
     for (const debt of debts) {
       const makerId = debt.makerId;
@@ -187,11 +201,9 @@ router.get("/debts", verifyAdmin, async (req, res) => {
   }
 });
 
-//  CÔNG NỢ: XÁC NHẬN ĐÃ THU
 router.put("/debts/:id/mark-paid", verifyAdmin, async (req, res) => {
   try {
     const { note } = req.body;
-
     const debt = await CommissionDebt.findByPk(req.params.id, {
       include: [
         {
@@ -224,7 +236,135 @@ router.put("/debts/:id/mark-paid", verifyAdmin, async (req, res) => {
   }
 });
 
-//  CHỈNH TỶ LỆ HOA HỒNG ─
+// ══════════════════════════════════════════════════════════════════
+//  PAYOUT — Tiền shop trả cho thợ (makerEarning)
+// ══════════════════════════════════════════════════════════════════
+
+// GET /api/admin/payouts — Danh sách khoản cần trả cho thợ
+router.get("/payouts", verifyAdmin, async (req, res) => {
+  try {
+    const { status } = req.query;
+    const where = status ? { status } : {};
+
+    const payouts = await MakerPayout.findAll({
+      where,
+      include: [
+        {
+          model: MakerProfile,
+          as: "MakerProfile",
+          include: [
+            {
+              model: User,
+              as: "User",
+              attributes: ["name", "email", "avatar"],
+            },
+          ],
+        },
+        {
+          model: CustomOrder,
+          as: "Order",
+          attributes: ["id", "title", "updatedAt", "paymentStatus"],
+        },
+      ],
+      order: [["createdAt", "DESC"]],
+    });
+
+    // Group theo thợ
+    const grouped = {};
+    for (const payout of payouts) {
+      const makerId = payout.makerId;
+      if (!grouped[makerId]) {
+        grouped[makerId] = {
+          makerId,
+          makerName: payout.MakerProfile?.User?.name,
+          makerEmail: payout.MakerProfile?.User?.email,
+          makerAvatar: payout.MakerProfile?.User?.avatar,
+          bankInfo:
+            payout.bankInfo || payout.MakerProfile?.bankInfo || "Chưa cung cấp",
+          totalPending: 0,
+          totalPaid: 0,
+          payouts: [],
+        };
+      }
+      grouped[makerId].payouts.push({
+        id: payout.id,
+        orderTitle: payout.Order?.title,
+        orderId: payout.Order?.id,
+        amount: payout.amount,
+        agreedPrice: payout.agreedPrice,
+        commissionRate: payout.commissionRate,
+        bankInfo: payout.bankInfo,
+        status: payout.status,
+        paidAt: payout.paidAt,
+        note: payout.note,
+        createdAt: payout.createdAt,
+        completedAt: payout.Order?.updatedAt,
+      });
+
+      if (payout.status === "cho_tra")
+        grouped[makerId].totalPending += payout.amount;
+      else grouped[makerId].totalPaid += payout.amount;
+    }
+
+    res.json(Object.values(grouped));
+  } catch (err) {
+    console.error("[Admin GET /payouts]", err.message);
+    res
+      .status(500)
+      .json({ message: "Lỗi lấy danh sách payout", error: err.message });
+  }
+});
+
+// PUT /api/admin/payouts/:id/mark-paid — Xác nhận đã chuyển tiền cho thợ
+router.put("/payouts/:id/mark-paid", verifyAdmin, async (req, res) => {
+  try {
+    const { note } = req.body;
+
+    const payout = await MakerPayout.findByPk(req.params.id, {
+      include: [
+        {
+          model: MakerProfile,
+          as: "MakerProfile",
+          include: [{ model: User, as: "User", attributes: ["name", "email"] }],
+        },
+      ],
+    });
+
+    if (!payout)
+      return res.status(404).json({ message: "Không tìm thấy khoản payout" });
+    if (payout.status === "da_tra")
+      return res.status(400).json({ message: "Khoản này đã được trả rồi!" });
+
+    payout.status = "da_tra";
+    payout.paidAt = new Date();
+    payout.note = note || null;
+    await payout.save();
+
+    // Gửi email thông báo cho thợ
+    const makerUser = payout.MakerProfile?.User;
+    if (makerUser?.email) {
+      mailer.notifyMakerPaid({
+        to: makerUser.email,
+        makerName: makerUser.name,
+        amount: payout.amount,
+        orderTitle: note || `Đơn #${payout.customOrderId}`,
+        note: note || "",
+      });
+    }
+
+    res.json({
+      message: `Đã xác nhận trả ${payout.amount.toLocaleString("vi-VN")}đ cho thợ ${makerUser?.name}`,
+      payout,
+    });
+  } catch (err) {
+    console.error("[Admin PUT /payouts/:id/mark-paid]", err.message);
+    res
+      .status(500)
+      .json({ message: "Lỗi xác nhận payout", error: err.message });
+  }
+});
+
+//  CHỈNH TỶ LỆ HOA HỒNG
 router.put("/makers/:id/commission", verifyAdmin, async (req, res) => {
   try {
     const { commissionRate } = req.body;
@@ -254,7 +394,7 @@ router.put("/makers/:id/commission", verifyAdmin, async (req, res) => {
   }
 });
 
-//  KHÓA / MỞ KHÓA THỢ ─
+//  KHÓA / MỞ KHÓA THỢ
 router.put("/makers/:id/ban", verifyAdmin, async (req, res) => {
   try {
     const { isBanned, banReason } = req.body;
@@ -269,9 +409,8 @@ router.put("/makers/:id/ban", verifyAdmin, async (req, res) => {
     profile.banReason = isBanned ? banReason || "Vi phạm quy định" : null;
     await profile.save();
 
-    const action = isBanned ? "Khóa" : "Mở khóa";
     res.json({
-      message: `${action} tài khoản thợ ${profile.User?.name} thành công`,
+      message: `${isBanned ? "Khóa" : "Mở khóa"} tài khoản thợ ${profile.User?.name} thành công`,
       profile,
     });
   } catch (err) {

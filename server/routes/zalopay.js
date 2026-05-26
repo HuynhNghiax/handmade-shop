@@ -4,8 +4,6 @@
  * POST /api/zalopay/create-order   — Tạo đơn ZaloPay cho custom order
  * POST /api/zalopay/callback       — ZaloPay gọi về khi thanh toán xong
  * POST /api/zalopay/query          — Query trạng thái giao dịch
- *
- * SECURITY: Key1 & Key2 chỉ dùng phía server, KHÔNG gửi về client
  */
 
 const router = require("express").Router();
@@ -15,10 +13,12 @@ const { verifyToken } = require("../middleware/authMiddleware");
 const CustomOrder = require("../models/CustomOrder");
 const MakerProfile = require("../models/MakerProfile");
 const CommissionDebt = require("../models/CommissionDebt");
+const MakerPayout = require("../models/MakerPayout");
 const { MAKER_BADGE } = require("../constants/business");
 const sequelize = require("../config/db");
+const mailer = require("../utils/mailer");
+const User = require("../models/User");
 
-//  CONFIG
 const ZALOPAY = {
   app_id: parseInt(process.env.ZALOPAY_APP_ID),
   key1: process.env.ZALOPAY_MAC_KEY,
@@ -29,7 +29,6 @@ const ZALOPAY = {
 
 const CLIENT_URL = process.env.CLIENT_URL || "http://localhost:5173";
 
-//  HELPER: Tạo app_trans_id theo format yymmdd_xxx
 const genTransId = (orderId) => {
   const now = new Date();
   const yy = String(now.getFullYear()).slice(-2);
@@ -39,7 +38,6 @@ const genTransId = (orderId) => {
   return `${yy}${mm}${dd}_pinky${orderId}_${rand}`;
 };
 
-//  HELPER: Tính MAC
 const hmac256 = (data, key) =>
   crypto.createHmac("sha256", key).update(data).digest("hex");
 
@@ -48,38 +46,30 @@ router.post("/create-order", verifyToken, async (req, res) => {
   try {
     const { customOrderId } = req.body;
 
-    // 1. Lấy đơn gia công
     const order = await CustomOrder.findByPk(customOrderId);
-    if (!order) {
+    if (!order)
       return res.status(404).json({ message: "Không tìm thấy đơn gia công" });
-    }
 
-    // 2. Kiểm tra quyền: chỉ chủ đơn mới thanh toán
-    if (order.userId !== req.user.id) {
+    if (order.userId !== req.user.id)
       return res.status(403).json({ message: "Bạn không phải chủ đơn này!" });
-    }
 
-    // 3. Đơn phải ở trạng thái "Chờ xác nhận"
-    if (order.status !== "Chờ xác nhận") {
+    if (order.status !== "Chờ xác nhận")
       return res
         .status(400)
         .json({ message: "Đơn chưa ở trạng thái sẵn sàng thanh toán!" });
-    }
 
-    // 4. Kiểm tra đã thanh toán chưa
-    if (order.paymentStatus === "paid") {
+    if (order.paymentStatus === "paid")
       return res
         .status(400)
         .json({ message: "Đơn này đã được thanh toán rồi!" });
-    }
 
     const appTransId = genTransId(order.id);
     const appTime = Date.now();
-    const amount = order.agreedPrice; // VND
+    const amount = order.agreedPrice;
 
     const embedData = JSON.stringify({
       customOrderId: order.id,
-      redirecturl: `${CLIENT_URL}/custom-order/${order.id}`,
+      redirecturl: `${CLIENT_URL}/custom-order/${order.id}?zpstatus=1`,
     });
 
     const items = JSON.stringify([
@@ -91,8 +81,6 @@ router.post("/create-order", verifyToken, async (req, res) => {
       },
     ]);
 
-    // 5. Tính MAC theo đúng spec ZaloPay
-    // data = app_id|app_trans_id|app_user|amount|app_time|embed_data|item
     const macData = [
       ZALOPAY.app_id,
       appTransId,
@@ -115,17 +103,15 @@ router.post("/create-order", verifyToken, async (req, res) => {
       description: `PinkyCrafts - Thanh toán gia công: ${order.title}`,
       embed_data: embedData,
       callback_url: `${process.env.SERVER_URL || "http://localhost:5000"}/api/zalopay/callback`,
-      bank_code: "", // để trống = hiện đủ phương thức
+      bank_code: "",
       mac,
     };
 
-    // 6. Gọi ZaloPay API
     const zpRes = await axios.post(ZALOPAY.endpoint_create, payload, {
       headers: { "Content-Type": "application/json" },
     });
 
     const zpData = zpRes.data;
-
     if (zpData.return_code !== 1) {
       console.error("[ZaloPay create-order] Error:", zpData);
       return res.status(502).json({
@@ -134,7 +120,6 @@ router.post("/create-order", verifyToken, async (req, res) => {
       });
     }
 
-    // 7. Lưu app_trans_id vào order để sau callback tìm lại
     order.zpTransId = appTransId;
     await order.save();
 
@@ -152,8 +137,6 @@ router.post("/create-order", verifyToken, async (req, res) => {
 });
 
 //  CALLBACK TỪ ZALOPAY
-// ZaloPay POST về đây sau khi user thanh toán
-// Phải verify MAC bằng Key2 trước khi xử lý
 router.post("/callback", async (req, res) => {
   const t = await sequelize.transaction();
   try {
@@ -163,7 +146,7 @@ router.post("/callback", async (req, res) => {
     const expectedMac = hmac256(cbData, ZALOPAY.key2);
     if (cbMac !== expectedMac) {
       await t.rollback();
-      console.warn("[ZaloPay callback] MAC mismatch! Possible fraud attempt.");
+      console.warn("[ZaloPay callback] MAC mismatch!");
       return res.json({ return_code: -1, return_message: "MAC không hợp lệ" });
     }
 
@@ -182,22 +165,22 @@ router.post("/callback", async (req, res) => {
         "[ZaloPay callback] Order not found for trans:",
         app_trans_id,
       );
-      return res.json({ return_code: 1, return_message: "ok" }); // Trả ok để ZaloPay không retry
+      return res.json({ return_code: 1, return_message: "ok" });
     }
 
-    // 3. Idempotency: nếu đã xử lý rồi thì bỏ qua
+    // 3. Idempotency
     if (order.paymentStatus === "paid") {
       await t.rollback();
       return res.json({ return_code: 1, return_message: "already processed" });
     }
 
-    // 4. Xác nhận thanh toán thành công → chuyển trạng thái
+    // 4. Xác nhận thanh toán
     order.paymentStatus = "paid";
     order.zpPaidAt = new Date(app_time);
     order.status = "Hoàn thành";
     await order.save({ transaction: t });
 
-    // 5. Cập nhật MakerProfile & tạo CommissionDebt
+    // 5. Cập nhật MakerProfile
     const makerProfile = await MakerProfile.findOne({
       where: { userId: order.makerId },
       transaction: t,
@@ -215,12 +198,11 @@ router.post("/callback", async (req, res) => {
       makerProfile.badgeEmoji = tier.emoji;
       await makerProfile.save({ transaction: t });
 
-      // Tạo CommissionDebt (tránh duplicate)
+      // 6. Tạo CommissionDebt (phí hoa hồng shop thu)
       const existingDebt = await CommissionDebt.findOne({
         where: { customOrderId: order.id },
         transaction: t,
       });
-
       if (!existingDebt) {
         await CommissionDebt.create(
           {
@@ -234,9 +216,52 @@ router.post("/callback", async (req, res) => {
           { transaction: t },
         );
       }
+
+      // 7. Tạo MakerPayout (tiền shop trả cho thợ) ← MỚI
+      const existingPayout = await MakerPayout.findOne({
+        where: { customOrderId: order.id },
+        transaction: t,
+      });
+      if (!existingPayout) {
+        await MakerPayout.create(
+          {
+            makerId: makerProfile.id,
+            customOrderId: order.id,
+            amount: order.makerEarning || 0,
+            agreedPrice: order.agreedPrice,
+            commissionRate: order.commissionRate,
+            bankInfo: makerProfile.bankInfo || null,
+            status: "cho_tra",
+          },
+          { transaction: t },
+        );
+      }
     }
 
     await t.commit();
+
+    // 8. Gửi email thông báo cho thợ
+    try {
+      const makerUser = await User.findByPk(order.makerId, {
+        attributes: ["name", "email"],
+      });
+      const customer = await User.findByPk(order.userId, {
+        attributes: ["name"],
+      });
+
+      if (makerUser?.email) {
+        mailer.notifyOrderPaidToMaker({
+          to: makerUser.email,
+          makerName: makerUser.name,
+          customerName: customer?.name,
+          orderTitle: order.title,
+          makerEarning: order.makerEarning,
+          orderUrl: `${CLIENT_URL}/custom-order/${order.id}`,
+        });
+      }
+    } catch (mailErr) {
+      console.error("[ZaloPay callback] Email error:", mailErr.message);
+    }
 
     console.log(
       `[ZaloPay callback] ✅ Order ${order.id} paid & completed. Trans: ${app_trans_id}`,
@@ -265,7 +290,6 @@ router.post("/query", verifyToken, async (req, res) => {
       });
     }
 
-    // Tính MAC cho query: data = app_id|app_trans_id|key1
     const macData = `${ZALOPAY.app_id}|${order.zpTransId}|${ZALOPAY.key1}`;
     const mac = hmac256(macData, ZALOPAY.key1);
 
