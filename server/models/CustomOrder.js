@@ -1,17 +1,3 @@
-/**
- * CustomOrder Model
- * =================
- * Đơn gia công giữa khách và thợ.
- *
- * COMMISSION FIELDS:
- *   agreedPrice      — Giá thợ được chọn báo (lấy từ Bid khi khách accept)
- *   commissionRate   — Tỷ lệ % tại thời điểm chốt đơn (snapshot, không đổi dù rate thợ thay đổi sau)
- *   commissionAmount — Số tiền shop thu = agreedPrice * commissionRate / 100
- *   shopEarning      — Bằng commissionAmount (để sau này có thể tách nếu có thêm phí khác)
- *   makerEarning     — Số tiền thợ thực nhận = agreedPrice - commissionAmount
- *
- */
-
 const { DataTypes } = require("sequelize");
 const sequelize = require("../config/db");
 
@@ -38,6 +24,7 @@ const CustomOrder = sequelize.define(
       ),
       defaultValue: "Đang tìm thợ",
     },
+    //  Commission fields
     agreedPrice: {
       type: DataTypes.INTEGER,
       allowNull: true,
@@ -56,12 +43,27 @@ const CustomOrder = sequelize.define(
     shopEarning: {
       type: DataTypes.INTEGER,
       allowNull: true,
-      comment: "Doanh thu shop từ đơn này (hiện = commissionAmount)",
     },
     makerEarning: {
       type: DataTypes.INTEGER,
       allowNull: true,
       comment: "Tiền thợ thực nhận = agreedPrice - commissionAmount",
+    },
+    //  ZaloPay fields
+    zpTransId: {
+      type: DataTypes.STRING,
+      allowNull: true,
+      comment: "app_trans_id gửi cho ZaloPay, dùng để đối soát callback",
+    },
+    paymentStatus: {
+      type: DataTypes.ENUM("unpaid", "paid", "refunded"),
+      defaultValue: "unpaid",
+      comment: "unpaid = chưa thanh toán | paid = đã TT qua ZaloPay",
+    },
+    zpPaidAt: {
+      type: DataTypes.DATE,
+      allowNull: true,
+      comment: "Thời điểm ZaloPay confirm thanh toán thành công",
     },
   },
   {
@@ -70,6 +72,7 @@ const CustomOrder = sequelize.define(
       { fields: ["status"] },
       { fields: ["userId"] },
       { fields: ["makerId"] },
+      { fields: ["zpTransId"] }, // index để callback lookup nhanh
     ],
   },
 );
