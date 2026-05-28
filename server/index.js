@@ -19,6 +19,8 @@ const reviewRoutes = require("./routes/review");
 const productReviewRoutes = require("./routes/productReview");
 const adminRoutes = require("./routes/admin");
 const zalopayRoutes = require("./routes/zalopay");
+const uploadRoutes = require("./routes/upload");
+const path = require("path");
 
 const app = express();
 
@@ -30,6 +32,7 @@ app.use(
   }),
 );
 app.use(express.json());
+app.use("/uploads", express.static(path.join(__dirname, "uploads")));
 
 // PASSPORT
 configurePassport();
@@ -47,6 +50,7 @@ app.use("/api/reviews", reviewRoutes);
 app.use("/api/product-reviews", productReviewRoutes);
 app.use("/api/admin", adminRoutes);
 app.use("/api/zalopay", zalopayRoutes);
+app.use("/api/upload", uploadRoutes);
 
 // HEALTH CHECK
 app.get("/health", (req, res) => res.json({ status: "ok", ts: new Date() }));

@@ -7,7 +7,7 @@ const AdminProductManager = () => {
   const [products, setProducts] = useState([]);
   const [showModal, setShowModal] = useState(false);
   const [editingProduct, setEditingProduct] = useState(null);
-  const [formData, setFormData] = useState({ name: '', price: '', category: '', img: '', desc: '' });
+  const [formData, setFormData] = useState({ name: '', price: '', category: '', img: '', desc: '', quantity: 0 });
   const [search, setSearch] = useState('');
   const { user } = useContext(AuthContext);
   const navigate = useNavigate();
@@ -37,7 +37,7 @@ const AdminProductManager = () => {
     }
     setShowModal(false);
     setEditingProduct(null);
-    setFormData({ name: '', price: '', category: '', img: '', desc: '' });
+    setFormData({ name: '', price: '', category: '', img: '', desc: '', quantity: 0 });
     fetchProducts();
   };
 
@@ -49,7 +49,7 @@ const AdminProductManager = () => {
 
   const openAdd = () => {
     setEditingProduct(null);
-    setFormData({ name: '', price: '', category: '', img: '', desc: '' });
+    setFormData({ name: '', price: '', category: '', img: '', desc: '', quantity: 0 });
     setShowModal(true);
   };
 
@@ -106,6 +106,7 @@ const AdminProductManager = () => {
                 <th className="text-left px-6 py-4 text-xs font-semibold text-gray-400 uppercase tracking-wide w-16">Ảnh</th>
                 <th className="text-left px-6 py-4 text-xs font-semibold text-gray-400 uppercase tracking-wide">Tên sản phẩm</th>
                 <th className="text-left px-6 py-4 text-xs font-semibold text-gray-400 uppercase tracking-wide w-32">Danh mục</th>
+                <th className="text-left px-6 py-4 text-xs font-semibold text-gray-400 uppercase tracking-wide w-24">Số lượng</th>
                 <th className="text-left px-6 py-4 text-xs font-semibold text-gray-400 uppercase tracking-wide w-36">Giá</th>
                 <th className="text-right px-6 py-4 text-xs font-semibold text-gray-400 uppercase tracking-wide w-28">Thao tác</th>
               </tr>
@@ -140,6 +141,9 @@ const AdminProductManager = () => {
                     <span className="inline-flex px-3 py-1 rounded-lg bg-gray-100 text-gray-600 text-xs font-medium">
                       {p.category}
                     </span>
+                  </td>
+                  <td className="px-6 py-3 font-semibold text-gray-700">
+                    {p.quantity || 0}
                   </td>
                   <td className="px-6 py-3 font-semibold text-pink-500">
                     {Number(p.price).toLocaleString('vi-VN')}đ
@@ -204,14 +208,25 @@ const AdminProductManager = () => {
                   </div>
                 </div>
 
-                <div className="space-y-1.5">
-                  <label className="text-xs font-semibold text-gray-500 uppercase tracking-wide">Danh mục</label>
-                  <input
-                    type="text" required placeholder="Nến thơm, Túi len..."
-                    className="w-full bg-gray-50 border border-gray-200 rounded-xl px-4 py-2.5 text-sm outline-none focus:border-pink-300"
-                    value={formData.category}
-                    onChange={e => setFormData({ ...formData, category: e.target.value })}
-                  />
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="space-y-1.5">
+                    <label className="text-xs font-semibold text-gray-500 uppercase tracking-wide">Danh mục</label>
+                    <input
+                      type="text" required placeholder="Nến thơm, Túi len..."
+                      className="w-full bg-gray-50 border border-gray-200 rounded-xl px-4 py-2.5 text-sm outline-none focus:border-pink-300"
+                      value={formData.category}
+                      onChange={e => setFormData({ ...formData, category: e.target.value })}
+                    />
+                  </div>
+                  <div className="space-y-1.5">
+                    <label className="text-xs font-semibold text-gray-500 uppercase tracking-wide">Số lượng</label>
+                    <input
+                      type="number" required min="0"
+                      className="w-full bg-gray-50 border border-gray-200 rounded-xl px-4 py-2.5 text-sm outline-none focus:border-pink-300"
+                      value={formData.quantity}
+                      onChange={e => setFormData({ ...formData, quantity: e.target.value ? Number(e.target.value) : 0 })}
+                    />
+                  </div>
                 </div>
 
                 <div className="space-y-1.5">

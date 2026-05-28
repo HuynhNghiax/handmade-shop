@@ -54,12 +54,24 @@ const ProductDetail = () => {
     if (type === 'dec') {
       quantity > 1 && setQuantity(quantity - 1);
     } else {
-      setQuantity(quantity + 1);
+      if (quantity < (product.quantity || 0)) {
+        setQuantity(quantity + 1);
+      } else {
+        alert(`Chỉ còn ${product.quantity} sản phẩm trong kho.`);
+      }
     }
   };
 
   const handleAction = (isRedirect) => {
     if (!product) return;
+    if (product.quantity === 0) {
+      alert('Sản phẩm này đã hết hàng!');
+      return;
+    }
+    if (quantity > product.quantity) {
+      alert(`Chỉ còn ${product.quantity} sản phẩm trong kho.`);
+      return;
+    }
     addToCart(product, quantity);
     if (isRedirect) navigate('/cart');
     else alert(`Đã thêm ${quantity} món "${product.name}" vào giỏ hàng!`);
@@ -161,9 +173,14 @@ const ProductDetail = () => {
           <div className="lg:col-span-5 flex flex-col justify-center">
             <div className="space-y-8">
               <div>
-                <span className="bg-pink-50 text-pink-500 px-4 py-1.5 rounded-full text-[10px] font-black uppercase tracking-widest mb-6 inline-block">
-                  {product.category}
-                </span>
+                <div className="flex gap-2 items-center mb-6">
+                  <span className="bg-pink-50 text-pink-500 px-4 py-1.5 rounded-full text-[10px] font-black uppercase tracking-widest inline-block">
+                    {product.category}
+                  </span>
+                  <span className="bg-gray-100 text-gray-500 px-4 py-1.5 rounded-full text-[10px] font-black uppercase tracking-widest inline-block">
+                    Còn {product.quantity || 0} sản phẩm
+                  </span>
+                </div>
                 <h1 className="text-5xl lg:text-7xl font-serif tracking-tighter text-gray-950 leading-[1.1] mb-6">
                   {product.name}
                 </h1>
