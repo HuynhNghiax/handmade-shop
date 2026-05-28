@@ -10,6 +10,7 @@ const CustomOrder = () => {
   const [bidData, setBidData] = useState({ price: '', message: '', contactInfo: '' });
   const [selectedOrderId, setSelectedOrderId] = useState(null);
   const [submitting, setSubmitting] = useState(false);
+  const [uploadingImage, setUploadingImage] = useState(false);
   const { user } = useContext(AuthContext);
 
   const fetchOrders = async () => {
@@ -22,6 +23,27 @@ const CustomOrder = () => {
   };
 
   useEffect(() => { fetchOrders(); }, []);
+
+  const handleImageUpload = async (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+    const formData = new FormData();
+    formData.append('image', file);
+    setUploadingImage(true);
+    try {
+      const res = await axios.post('http://localhost:5000/api/upload', formData, {
+        headers: { 
+          'Content-Type': 'multipart/form-data',
+          token: `Bearer ${user.accessToken}`
+        }
+      });
+      setNewRequest({ ...newRequest, image: res.data.url });
+    } catch (err) {
+      alert('Lỗi tải ảnh lên!');
+    } finally {
+      setUploadingImage(false);
+    }
+  };
 
   const handlePostRequest = async (e) => {
     e.preventDefault();
@@ -91,7 +113,7 @@ const CustomOrder = () => {
               <div className="flex-1 h-px bg-gray-100" />
             </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <div className="flex flex-col gap-6">
               {myOrders.map(order => {
                 const bidCount = order.Bids?.length || 0;
                 const hasNewBids = bidCount > 0 && order.status === 'Đang tìm thợ';
@@ -100,45 +122,52 @@ const CustomOrder = () => {
                   <Link
                     key={order.id}
                     to={`/custom-order/${order.id}`}
-                    className="block bg-gray-950 text-white p-8 rounded-[2.5rem] hover:bg-gray-800 transition-all group relative overflow-hidden"
+                    className="flex flex-col md:flex-row items-center gap-6 bg-gray-950 text-white p-6 rounded-[2.5rem] hover:bg-gray-800 transition-all group relative overflow-hidden"
                   >
-                    {/* Badge báo giá mới */}
-                    {hasNewBids && (
-                      <div className="absolute top-5 right-5 bg-pink-500 text-white text-[9px] font-black px-3 py-1.5 rounded-full flex items-center gap-1.5 animate-pulse">
-                        <span className="size-1.5 bg-white rounded-full" />
-                        {bidCount} báo giá mới
+                    <img 
+                      src={order.image || `https://ui-avatars.com/api/?name=${encodeURIComponent(order.title)}&background=fbcfe8&color=ec4899`} 
+                      alt={order.title} 
+                      className="w-full md:w-32 h-48 md:h-32 object-cover rounded-[1.5rem] flex-shrink-0" 
+                    />
+                    <div className="flex-1 min-w-0 w-full relative">
+                      {/* Badge báo giá mới */}
+                      {hasNewBids && (
+                        <div className="absolute top-0 right-0 md:top-auto md:right-0 bg-pink-500 text-white text-[9px] font-black px-3 py-1.5 rounded-full flex items-center gap-1.5 animate-pulse">
+                          <span className="size-1.5 bg-white rounded-full" />
+                          {bidCount} báo giá mới
+                        </div>
+                      )}
+
+                      {/* Badge trạng thái (không phải đang tìm thợ) */}
+                      {!hasNewBids && (
+                        <span className={`absolute top-0 right-0 md:top-auto md:right-0 text-[9px] font-black px-3 py-1.5 rounded-full
+                          ${order.status === 'Hoàn thành' ? 'bg-green-500 text-white' :
+                            order.status === 'Đã hủy' ? 'bg-gray-600 text-gray-300' :
+                              order.status === 'Đang tìm thợ' ? 'bg-gray-700 text-gray-400' :
+                                'bg-purple-500 text-white'}`}
+                        >
+                          {order.status === 'Đang tìm thợ' && bidCount === 0 ? 'Chưa có báo giá' : order.status}
+                        </span>
+                      )}
+
+                      <p className="text-[9px] font-black uppercase text-pink-400 tracking-[0.2em] mb-2 mt-2 md:mt-0">
+                        Ngân sách: {order.budget?.toLocaleString('vi-VN')}đ
+                      </p>
+                      <h3 className="text-xl font-serif italic mb-2 md:pr-24 truncate">{order.title}</h3>
+                      <p className="text-gray-400 text-sm font-light line-clamp-2 leading-relaxed mb-4">
+                        {order.description}
+                      </p>
+
+                      <div className="flex items-center justify-between pt-4 border-t border-white/10">
+                        <span className="text-[10px] font-black uppercase tracking-widest text-gray-500">
+                          {bidCount === 0
+                            ? 'Chưa có ai báo giá'
+                            : `${bidCount} thợ đã báo giá`}
+                        </span>
+                        <span className="text-[10px] font-black text-pink-400 group-hover:translate-x-1 transition-transform">
+                          Xem chi tiết →
+                        </span>
                       </div>
-                    )}
-
-                    {/* Badge trạng thái (không phải đang tìm thợ) */}
-                    {!hasNewBids && (
-                      <span className={`absolute top-5 right-5 text-[9px] font-black px-3 py-1.5 rounded-full
-                        ${order.status === 'Hoàn thành' ? 'bg-green-500 text-white' :
-                          order.status === 'Đã hủy' ? 'bg-gray-600 text-gray-300' :
-                            order.status === 'Đang tìm thợ' ? 'bg-gray-700 text-gray-400' :
-                              'bg-purple-500 text-white'}`}
-                      >
-                        {order.status === 'Đang tìm thợ' && bidCount === 0 ? 'Chưa có báo giá' : order.status}
-                      </span>
-                    )}
-
-                    <p className="text-[9px] font-black uppercase text-pink-400 tracking-[0.2em] mb-3">
-                      Ngân sách: {order.budget?.toLocaleString('vi-VN')}đ
-                    </p>
-                    <h3 className="text-xl font-serif italic mb-3 pr-24">{order.title}</h3>
-                    <p className="text-gray-400 text-sm font-light line-clamp-2 leading-relaxed mb-6">
-                      {order.description}
-                    </p>
-
-                    <div className="flex items-center justify-between pt-4 border-t border-white/10">
-                      <span className="text-[10px] font-black uppercase tracking-widest text-gray-500">
-                        {bidCount === 0
-                          ? 'Chưa có ai báo giá'
-                          : `${bidCount} thợ đã báo giá`}
-                      </span>
-                      <span className="text-[10px] font-black text-pink-400 group-hover:translate-x-1 transition-transform">
-                        Xem chi tiết →
-                      </span>
                     </div>
                   </Link>
                 );
@@ -159,34 +188,44 @@ const CustomOrder = () => {
         )}
 
         {/* YÊU CẦU TỪ CỘNG ĐỒNG */}
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-10">
+        <div className="flex flex-col gap-8">
           {otherOrders.map(order => (
             <div
               key={order.id}
-              className="bg-gray-50 p-10 rounded-[3rem] border border-gray-100 hover:shadow-2xl transition-all group relative overflow-hidden"
+              className="flex flex-col md:flex-row gap-6 bg-gray-50 p-6 rounded-[3rem] border border-gray-100 hover:shadow-2xl transition-all group relative overflow-hidden"
             >
-              <span className="text-[9px] font-black uppercase text-pink-400 tracking-[0.2em] mb-4 block">
-                {order.status}
-              </span>
-              <h3 className="text-2xl font-serif italic mb-4 text-gray-900">{order.title}</h3>
-              <p className="text-gray-500 font-light mb-8 line-clamp-3 leading-relaxed">
-                {order.description}
-              </p>
-
-              <div className="flex justify-between items-center pt-8 border-t border-gray-200">
-                <div className="flex flex-col">
-                  <span className="text-[10px] text-gray-400 uppercase font-bold mb-1">Ngân sách</span>
-                  <span className="font-bold text-base text-pink-500">
-                    {order.budget?.toLocaleString()}đ
-                  </span>
+              <img 
+                src={order.image || `https://ui-avatars.com/api/?name=${encodeURIComponent(order.title)}&background=fbcfe8&color=ec4899`} 
+                alt={order.title} 
+                className="w-full md:w-48 h-56 md:h-48 object-cover rounded-[2rem] flex-shrink-0" 
+              />
+              <div className="flex-1 min-w-0 flex flex-col justify-between py-2">
+                <div>
+                  <div className="flex justify-between items-start mb-2">
+                    <span className="text-[9px] font-black uppercase text-pink-400 tracking-[0.2em]">
+                      {order.status}
+                    </span>
+                    <div className="flex flex-col items-end">
+                      <span className="text-[10px] text-gray-400 uppercase font-bold mb-1">Ngân sách</span>
+                      <span className="font-bold text-lg text-pink-500">
+                        {order.budget?.toLocaleString()}đ
+                      </span>
+                    </div>
+                  </div>
+                  <h3 className="text-2xl font-serif italic mb-2 text-gray-900 truncate">{order.title}</h3>
+                  <p className="text-gray-500 font-light mb-6 line-clamp-2 leading-relaxed">
+                    {order.description}
+                  </p>
                 </div>
 
-                <button
-                  onClick={() => setSelectedOrderId(order.id)}
-                  className="bg-white px-8 py-3 rounded-full border border-gray-200 text-[10px] font-black uppercase hover:bg-gray-950 hover:text-white transition-all shadow-sm"
-                >
-                  Gửi báo giá
-                </button>
+                <div className="flex justify-end pt-4 border-t border-gray-200">
+                  <button
+                    onClick={() => setSelectedOrderId(order.id)}
+                    className="bg-white px-8 py-3 rounded-full border border-gray-200 text-[10px] font-black uppercase hover:bg-gray-950 hover:text-white transition-all shadow-sm"
+                  >
+                    Gửi báo giá
+                  </button>
+                </div>
               </div>
             </div>
           ))}
@@ -235,6 +274,30 @@ const CustomOrder = () => {
                 onChange={e => setNewRequest({ ...newRequest, budget: e.target.value })}
                 required
               />
+              <div className="space-y-2">
+                <p className="text-[10px] text-gray-500 font-black uppercase tracking-widest pl-2">Ảnh minh họa (không bắt buộc)</p>
+                <div className="flex flex-col sm:flex-row gap-4 items-center">
+                  <input
+                    type="text"
+                    placeholder="Dán link ảnh vào đây..."
+                    className="w-full sm:flex-1 bg-gray-50 p-5 rounded-2xl outline-none border border-transparent focus:border-pink-200"
+                    value={newRequest.image}
+                    onChange={e => setNewRequest({ ...newRequest, image: e.target.value })}
+                  />
+                  <label className="flex-shrink-0 size-[62px] bg-pink-50 text-pink-500 rounded-2xl cursor-pointer hover:bg-pink-100 transition-all flex items-center justify-center border-2 border-dashed border-pink-200 hover:border-pink-300 group relative" title="Tải ảnh lên">
+                    <svg xmlns="http://www.w3.org/2000/svg" className="size-7 group-hover:scale-110 transition-transform" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M2.25 15.75l5.159-5.159a2.25 2.25 0 013.182 0l5.159 5.159m-1.5-1.5l1.409-1.409a2.25 2.25 0 013.182 0l2.909 2.909m-18 3.75h16.5a1.5 1.5 0 001.5-1.5V6a1.5 1.5 0 00-1.5-1.5H3.75A1.5 1.5 0 002.25 6v12a1.5 1.5 0 001.5 1.5zm10.5-11.25h.008v.008h-.008V8.25zm.375 0a.375.375 0 11-.75 0 .375.375 0 01.75 0z" />
+                    </svg>
+                    <input 
+                      type="file" 
+                      accept="image/*" 
+                      className="hidden" 
+                      onChange={handleImageUpload} 
+                    />
+                  </label>
+                </div>
+                {uploadingImage && <p className="text-[10px] text-pink-500 font-black tracking-widest uppercase animate-pulse pl-2 mt-2">Đang tải ảnh lên...</p>}
+              </div>
               <div className="flex gap-4 pt-6">
                 <button
                   type="submit"
