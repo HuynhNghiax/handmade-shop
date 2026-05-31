@@ -252,6 +252,8 @@ router.post("/:id/accept-bid", verifyToken, async (req, res) => {
     order.commissionAmount = commissionAmount;
     order.shopEarning = shopEarning;
     order.makerEarning = makerEarning;
+    order.depositAmount = Math.round(bid.price * 0.5);
+    order.finalAmount = bid.price - Math.round(bid.price * 0.5);
     await order.save({ transaction: t });
 
     await t.commit();
@@ -300,7 +302,11 @@ router.post("/:id/start", verifyToken, async (req, res) => {
       return res
         .status(400)
         .json({ message: "Đơn không ở trạng thái chờ bắt đầu!" });
-
+    if (order.depositStatus !== "paid") {
+      return res
+        .status(400)
+        .json({ message: "Khách hàng chưa thanh toán cọc!" });
+    }
     order.status = ORDER_STATUS.IN_PROGRESS;
     await order.save();
 
