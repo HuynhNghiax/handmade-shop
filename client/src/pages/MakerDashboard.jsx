@@ -12,9 +12,10 @@ const STATUS_COLOR = {
 };
 
 const TABS = [
+  { id: 'bids_sent', label: 'Báo giá đã gửi', icon: '🙋', statuses: [] },
   { id: 'active', label: 'Đang làm', icon: '🔨', statuses: ['Đã chọn thợ', 'Đang thực hiện', 'Chờ xác nhận'] },
   { id: 'done', label: 'Hoàn thành', icon: '✅', statuses: ['Hoàn thành'] },
-  { id: 'payouts', label: 'Thu nhập', icon: '💵', statuses: [] }, // ← MỚI
+  { id: 'payouts', label: 'Thu nhập', icon: '💵', statuses: [] },
   { id: 'debts', label: 'Công nợ', icon: '💳', statuses: [] },
   { id: 'history', label: 'Tất cả', icon: '📋', statuses: [] },
 ];
@@ -43,27 +44,30 @@ const MakerDashboard = () => {
   const [tab, setTab] = useState('active');
   const [bids, setBids] = useState([]);
   const [debts, setDebts] = useState(null);
-  const [payouts, setPayouts] = useState(null); // ← MỚI
+  const [payouts, setPayouts] = useState(null);
   const [profile, setProfile] = useState(null);
   const [loading, setLoading] = useState(true);
   const [acting, setActing] = useState(null);
+  const [myOrders, setMyOrders] = useState([]);
 
   const headers = () => ({ headers: { token: `Bearer ${user?.accessToken}` } });
 
   const fetchAll = async () => {
     setLoading(true);
     try {
-      const [bidsRes, debtsRes, profileRes, payoutsRes] = await Promise.all([
+      const [bidsRes, debtsRes, profileRes, payoutsRes, ordersRes] = await Promise.all([
         axios.get('http://localhost:5000/api/users/my-profile', headers()),
         axios.get('http://localhost:5000/api/makers/my-debts', headers()),
         axios.get('http://localhost:5000/api/makers/my-profile', headers()),
         axios.get('http://localhost:5000/api/makers/my-payouts', headers()),
+        axios.get('http://localhost:5000/api/makers/my-orders', headers()),
       ]);
 
       setBids(bidsRes.data.myBids || []);
       setDebts(debtsRes.data);
       setProfile(profileRes.data);
       setPayouts(payoutsRes.data);
+      setMyOrders(ordersRes.data || []);
     } catch (err) {
       console.error('[MakerDashboard] fetchAll:', err.message);
     } finally {
@@ -94,11 +98,11 @@ const MakerDashboard = () => {
     </div>
   );
 
-  const allOrders = bids
-    .filter(b => b.CustomOrder && b.CustomOrder.acceptedBidId === b.id)
-    .map(b => ({ ...b.CustomOrder, myBidPrice: b.price, myBidMessage: b.message }));
+  const allOrders = myOrders;
 
-  const activeOrders = allOrders.filter(o => ['Đã chọn thợ', 'Đang thực hiện', 'Chờ xác nhận'].includes(o.status));
+  const activeOrders = allOrders.filter(o =>
+    ['Đã chọn thợ', 'Đang thực hiện', 'Chờ xác nhận'].includes(o.status)
+  );
   const doneOrders = allOrders.filter(o => o.status === 'Hoàn thành');
   const cancelOrders = allOrders.filter(o => o.status === 'Đã hủy');
 
@@ -196,6 +200,63 @@ const MakerDashboard = () => {
             );
           })}
         </div>
+
+        {tab === 'bids_sent' && (
+          <div className="space-y-4">
+            {bids.length === 0
+              ? <EmptyState icon="🙋" message="Bạn chưa gửi báo giá nào." />
+              : bids.map(bid => {
+                const order = bid.CustomOrder;
+                const isAccepted = Number(order?.acceptedBidId) === Number(bid.id);
+                const isWaiting = order?.status === 'Đang tìm thợ';
+
+                return (
+                  <div key={bid.id} className={`relative rounded-[2rem] border-2 overflow-hidden transition-all
+              ${isAccepted ? 'border-green-300 bg-green-50' : 'border-gray-100 bg-white'}`}>
+                    <p className="text-xs text-gray-400 italic">
+                      {isAccepted
+                        ? '✅ Báo giá của bạn được chọn — vào đơn để bắt đầu!'
+                        : isWaiting
+                          ? 'Đang chờ khách xem xét...'
+                          : order?.status === 'Hoàn thành'
+                            ? 'Đơn đã hoàn thành.'
+                            : order?.makerId === order?.acceptedBidId
+                              ? 'Khách đã chọn thợ khác.'
+                              : 'Đơn không còn nhận báo giá.'}
+                    </p>
+                    <div className="p-6 flex items-center justify-between gap-6">
+                      <div className="flex-1">
+                        <div className="flex items-center gap-3 mb-2">
+                          <h3 className="font-bold text-gray-950">{order?.title}</h3>
+                          <span className={`text-[9px] font-black px-3 py-1 rounded-full uppercase
+                      ${isAccepted ? 'bg-green-100 text-green-700' :
+                              isWaiting ? 'bg-yellow-100 text-yellow-700' :
+                                order?.status === 'Hoàn thành' ? 'bg-gray-100 text-gray-500' :
+                                  'bg-blue-100 text-blue-700'}`}>
+                            {order?.status}
+                          </span>
+                        </div>
+                        <p className="text-xl font-serif font-bold text-pink-500 mb-1">
+                          {bid.price?.toLocaleString('vi-VN')}đ
+                        </p>
+                        <p className="text-xs text-gray-400 italic">
+                          {isAccepted ? 'Đã được chọn — xem đơn để tiếp tục' :
+                            isWaiting ? 'Đang chờ khách xem xét...' :
+                              'Đơn đã có thợ khác hoặc đã hoàn thành.'}
+                        </p>
+                      </div>
+                      <a href={`/custom-order/${order?.id}`}
+                        className={`flex-shrink-0 px-6 py-3 rounded-full text-[10px] font-black uppercase tracking-widest transition-all shadow-xl
+                    ${isAccepted ? 'bg-green-500 text-white hover:bg-green-600' : 'bg-gray-950 text-white hover:bg-pink-500'}`}>
+                        {isAccepted ? 'Vào đơn ngay →' : 'Xem đơn →'}
+                      </a>
+                    </div>
+                  </div>
+                );
+              })
+            }
+          </div>
+        )}
 
         {/* TAB: ĐANG LÀM */}
         {tab === 'active' && (
@@ -462,6 +523,7 @@ const MakerDashboard = () => {
             )}
           </div>
         )}
+
 
       </div>
     </div>
