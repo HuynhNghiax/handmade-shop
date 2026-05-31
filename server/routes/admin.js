@@ -99,7 +99,12 @@ router.get("/stats", verifyAdmin, async (req, res) => {
 router.get("/commission", verifyAdmin, async (req, res) => {
   try {
     const orders = await CustomOrder.findAll({
-      where: { status: "Hoàn thành", shopEarning: { [Op.not]: null } },
+      where: {
+        [Op.or]: [
+          { status: "Hoàn thành", shopEarning: { [Op.not]: null } },
+          { status: "Đã hủy", depositStatus: "paid" }, // ← THÊM
+        ],
+      },
       include: [
         { model: User, as: "Customer", attributes: ["name", "email"] },
         { model: User, as: "Maker", attributes: ["name", "email"] },
@@ -109,18 +114,35 @@ router.get("/commission", verifyAdmin, async (req, res) => {
     });
 
     res.json(
-      orders.map((o) => ({
-        id: o.id,
-        title: o.title,
-        customerName: o.Customer?.name,
-        makerName: o.Maker?.name,
-        agreedPrice: o.agreedPrice,
-        commissionRate: o.commissionRate,
-        commissionAmount: o.commissionAmount,
-        makerEarning: o.makerEarning,
-        shopEarning: o.shopEarning,
-        completedAt: o.updatedAt,
-      })),
+      orders.map((o) => {
+        const isCancelledWithDeposit =
+          o.status === "Đã hủy" && o.depositStatus === "paid";
+        const { commissionAmount, makerEarning, shopEarning } =
+          isCancelledWithDeposit
+            ? COMMISSION.calculate(
+                o.depositAmount,
+                o.commissionRate ?? COMMISSION.DEFAULT_RATE,
+              )
+            : {
+                commissionAmount: o.commissionAmount,
+                makerEarning: o.makerEarning,
+                shopEarning: o.shopEarning,
+              };
+
+        return {
+          id: o.id,
+          title: o.title,
+          customerName: o.Customer?.name,
+          makerName: o.Maker?.name,
+          agreedPrice: isCancelledWithDeposit ? o.depositAmount : o.agreedPrice,
+          commissionRate: o.commissionRate,
+          commissionAmount,
+          makerEarning,
+          shopEarning,
+          completedAt: o.updatedAt,
+          cancelledWithDeposit: isCancelledWithDeposit,
+        };
+      }),
     );
   } catch (err) {
     console.error("[Admin GET /commission]", err.message);

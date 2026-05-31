@@ -267,7 +267,12 @@ const AdminDashboard = () => {
                   <tbody className="divide-y divide-gray-50">
                     {commission.map(o => (
                       <tr key={o.id} className="hover:bg-gray-50">
-                        <td className="px-4 py-3 font-medium max-w-32 truncate">{o.title}</td>
+                        <td className="px-4 py-3 font-medium max-w-32 truncate">
+                          {o.title}
+                          {o.cancelledWithDeposit && (
+                            <span className="ml-2 text-[8px] bg-orange-100 text-orange-600 px-2 py-0.5 rounded-full font-black">Hủy mất cọc</span>
+                          )}
+                        </td>
                         <td className="px-4 py-3 text-gray-500 text-xs">{o.customerName}</td>
                         <td className="px-4 py-3 text-gray-500 text-xs">{o.makerName}</td>
                         <td className="px-4 py-3 font-semibold">{fmt(o.agreedPrice)}</td>
