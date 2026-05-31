@@ -16,18 +16,30 @@ router.get("/my-profile", verifyToken, async (req, res) => {
     const myRequests = await CustomOrder.findAll({
       where: { userId: req.user.id },
       include: [
-        { model: Bid, as: "Bids", include: [{ model: User, as: "MakerUser", attributes: ["name"] }] },
+        {
+          model: Bid,
+          as: "Bids",
+          include: [{ model: User, as: "MakerUser", attributes: ["name"] }],
+        },
       ],
     });
 
-    // Thêm acceptedBidId để thợ biết bid nào được chọn
     const myBids = await Bid.findAll({
       where: { makerId: req.user.id },
       include: [
         {
           model: CustomOrder,
           as: "CustomOrder",
-          attributes: ["id", "title", "status", "acceptedBidId"],
+          attributes: [
+            "id",
+            "title",
+            "status",
+            "acceptedBidId",
+            "makerId",
+            "agreedPrice",
+            "makerEarning",
+            "budget",
+          ],
         },
       ],
       order: [["createdAt", "DESC"]],
