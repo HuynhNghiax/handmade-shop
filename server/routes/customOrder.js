@@ -384,6 +384,9 @@ router.post("/:id/confirm", verifyToken, async (req, res) => {
         .status(400)
         .json({ message: "Đơn không ở trạng thái chờ xác nhận!" });
     }
+    if (order.status === "Hoàn thành") {
+      return res.status(400).json({ message: "Đơn này đã hoàn thành rồi!" });
+    }
 
     order.status = ORDER_STATUS.DONE;
     await order.save({ transaction: t });
@@ -471,6 +474,94 @@ router.post("/:id/cancel", verifyToken, async (req, res) => {
     res.json({ message: "Đã hủy đơn", order });
   } catch (err) {
     console.error("[CustomOrder POST /:id/cancel]", err.message);
+    res.status(500).json({ message: "Lỗi hủy đơn", error: err.message });
+  }
+});
+
+router.post("/:id/cancel-with-refund", verifyToken, async (req, res) => {
+  const t = await sequelize.transaction();
+  try {
+    const order = await CustomOrder.findByPk(req.params.id, { transaction: t });
+    if (!order) {
+      await t.rollback();
+      return res.status(404).json({ message: "Không tìm thấy đơn" });
+    }
+    if (order.userId !== req.user.id) {
+      await t.rollback();
+      return res.status(403).json({ message: "Bạn không phải chủ đơn này!" });
+    }
+    if (!["Đã chọn thợ", "Đang thực hiện"].includes(order.status)) {
+      await t.rollback();
+      return res.status(400).json({ message: "Không thể hủy đơn này!" });
+    }
+    if (order.depositStatus !== "paid") {
+      await t.rollback();
+      return res
+        .status(400)
+        .json({ message: "Đơn chưa cọc, dùng hủy thường!" });
+    }
+
+    // Thợ giữ tiền cọc — tạo payout cho thợ luôn
+    const makerProfile = await MakerProfile.findOne({
+      where: { userId: order.makerId },
+      transaction: t,
+    });
+
+    if (makerProfile) {
+      const depositAmount = order.depositAmount;
+      const rate = order.commissionRate ?? COMMISSION.DEFAULT_RATE;
+
+      // Tính hoa hồng trên tiền cọc
+      const { commissionAmount, makerEarning } = COMMISSION.calculate(
+        depositAmount,
+        rate,
+      );
+
+      const MakerPayout = require("../models/MakerPayout");
+      const existingPayout = await MakerPayout.findOne({
+        where: { customOrderId: order.id },
+        transaction: t,
+      });
+      if (!existingPayout) {
+        await MakerPayout.create(
+          {
+            makerId: makerProfile.id,
+            customOrderId: order.id,
+            amount: makerEarning, // ← thợ nhận cọc TRỪ hoa hồng
+            agreedPrice: depositAmount,
+            commissionRate: rate,
+            bankInfo: makerProfile.bankInfo || null,
+            status: "cho_tra",
+            note: "Khách hủy đơn sau khi cọc — thợ giữ cọc trừ hoa hồng",
+          },
+          { transaction: t },
+        );
+      }
+
+      // CommissionDebt từ tiền cọc
+      await CommissionDebt.create(
+        {
+          makerId: makerProfile.id,
+          customOrderId: order.id,
+          amount: commissionAmount, // ← shop thu hoa hồng trên cọc
+          agreedPrice: depositAmount,
+          commissionRate: rate,
+          status: "da_thu", // ← đã thu qua ZaloPay
+          paidAt: new Date(),
+          note: "Hoa hồng từ tiền cọc — khách hủy đơn",
+        },
+        { transaction: t },
+      );
+    }
+
+    order.status = ORDER_STATUS.CANCELLED;
+    await order.save({ transaction: t });
+
+    await t.commit();
+    res.json({ message: "Đã hủy đơn. Tiền cọc sẽ được giữ lại cho thợ." });
+  } catch (err) {
+    await t.rollback();
+    console.error("[CustomOrder POST /:id/cancel-with-refund]", err.message);
     res.status(500).json({ message: "Lỗi hủy đơn", error: err.message });
   }
 });

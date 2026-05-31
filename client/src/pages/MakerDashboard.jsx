@@ -549,8 +549,16 @@ const OrderCard = ({ order, acting, onAction, showActions = false }) => {
             {order.myBidPrice && (
               <span>🤝 Giá chốt: <span className="text-pink-500">{order.myBidPrice.toLocaleString('vi-VN')}đ</span></span>
             )}
-            {order.makerEarning && (
-              <span>💵 Tôi nhận: <span className="text-green-600">{order.makerEarning.toLocaleString('vi-VN')}đ</span></span>
+            {order.status === 'Đã hủy' ? (
+              order.depositStatus === 'paid'
+                ? <span>💰 Giữ cọc (sau HH): <span className="text-orange-500">
+                  {Math.round(order.depositAmount * (1 - order.commissionRate / 100)).toLocaleString('vi-VN')}đ
+                </span></span>
+                : <span className="text-gray-400">Không nhận được tiền</span>
+            ) : (
+              order.makerEarning && (
+                <span>💵 Tôi nhận: <span className="text-green-600">{order.makerEarning.toLocaleString('vi-VN')}đ</span></span>
+              )
             )}
           </div>
         </div>

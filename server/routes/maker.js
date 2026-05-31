@@ -66,6 +66,7 @@ router.get("/admin/pending", verifyAdmin, async (req, res) => {
 router.get("/admin/all", verifyAdmin, async (req, res) => {
   try {
     const all = await MakerProfile.findAll({
+      where: { status: { [Op.in]: ["cho_duyet", "da_duyet"] } },
       include: [
         { model: User, as: "User", attributes: ["name", "email", "avatar"] },
       ],
@@ -237,7 +238,6 @@ router.post("/register", verifyToken, async (req, res) => {
       portfolio: portfolio || [],
       status: "cho_duyet",
     });
-    await User.update({ isMaker: true }, { where: { id: req.user.id } });
     res.status(201).json({
       message: "Đăng ký thành công! Hồ sơ đang chờ Admin duyệt.",
       profile,

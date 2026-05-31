@@ -690,13 +690,38 @@ const CustomOrderDetail = () => {
               )}
 
               {/*  HỦY ĐƠN ─ */}
-              {isOwner && ['Đang tìm thợ', 'Đã chọn thợ'].includes(order.status) && (
+              {isOwner && order.status === 'Đang tìm thợ' && (
                 <button
                   onClick={() => { if (window.confirm('Xác nhận hủy đơn?')) action('cancel'); }}
                   disabled={acting}
                   className="w-full border-2 border-red-100 text-red-500 py-3 rounded-2xl text-[10px] font-black uppercase hover:bg-red-50 transition-all disabled:opacity-50"
                 >
                   Hủy đơn
+                </button>
+              )}
+
+              {/* Đã chọn thợ + chưa cọc — vẫn hủy thường được */}
+              {isOwner && order.status === 'Đã chọn thợ' && order.depositStatus !== 'paid' && (
+                <button
+                  onClick={() => { if (window.confirm('Xác nhận hủy đơn?')) action('cancel'); }}
+                  disabled={acting}
+                  className="w-full border-2 border-red-100 text-red-500 py-3 rounded-2xl text-[10px] font-black uppercase hover:bg-red-50 transition-all disabled:opacity-50"
+                >
+                  Hủy đơn
+                </button>
+              )}
+
+              {/* Đã cọc — hủy mất cọc */}
+              {isOwner && ['Đã chọn thợ', 'Đang thực hiện'].includes(order.status) && order.depositStatus === 'paid' && order.finalStatus !== 'paid' && (
+                <button
+                  onClick={() => {
+                    if (window.confirm(`Hủy đơn sau khi đã cọc sẽ MẤT ${COMMISSION.format(order.depositAmount)} tiền cọc!\n\nTiền cọc sẽ được giữ lại cho thợ như phí bồi thường.\n\nBạn có chắc muốn hủy không?`))
+                      action('cancel-with-refund');
+                  }}
+                  disabled={acting}
+                  className="w-full border-2 border-orange-200 text-orange-500 py-3 rounded-2xl text-[10px] font-black uppercase hover:bg-orange-50 transition-all disabled:opacity-50"
+                >
+                  Hủy đơn (mất cọc)
                 </button>
               )}
 
