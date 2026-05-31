@@ -4,6 +4,7 @@ import axios from 'axios';
 import { AuthContext } from '../context/AuthContext';
 import CommissionSummary from '../components/CommissionSummary';
 import MakerBadge from '../components/MakerBadge';
+import { COMMISSION } from '../constants/business';
 
 //  Constants 
 const STATUS_STEPS = ['Đang tìm thợ', 'Đã chọn thợ', 'Đang thực hiện', 'Chờ xác nhận', 'Hoàn thành'];
@@ -79,8 +80,8 @@ const StarRating = ({ rating }) => (
   </div>
 );
 
-//  ZaloPay Payment Button Component 
-const ZaloPayButton = ({ order, user, onSuccess }) => {
+//  ZaloPay Payment Button (tái sử dụng cho cả deposit & final) ─
+const ZaloPayButton = ({ label, endpoint, payload, user, onSuccess, transId }) => {
   const [loading, setLoading] = useState(false);
   const [querying, setQuerying] = useState(false);
   const [error, setError] = useState(null);
@@ -90,11 +91,10 @@ const ZaloPayButton = ({ order, user, onSuccess }) => {
     setError(null);
     try {
       const res = await axios.post(
-        'http://localhost:5000/api/zalopay/create-order',
-        { customOrderId: order.id },
+        `http://localhost:5000/api/zalopay/${endpoint}`,
+        payload,
         { headers: { token: `Bearer ${user.accessToken}` } }
       );
-      // Redirect sang trang thanh toán ZaloPay
       window.location.href = res.data.order_url;
     } catch (err) {
       setError(err.response?.data?.message || 'Không thể tạo đơn thanh toán. Thử lại sau!');
@@ -108,10 +108,11 @@ const ZaloPayButton = ({ order, user, onSuccess }) => {
     try {
       const res = await axios.post(
         'http://localhost:5000/api/zalopay/query',
-        { customOrderId: order.id },
+        { ...payload, transType: endpoint === 'create-deposit' ? 'deposit' : 'final' },
         { headers: { token: `Bearer ${user.accessToken}` } }
       );
-      if (res.data.paymentStatus === 'paid') {
+      const status = endpoint === 'create-deposit' ? res.data.depositStatus : res.data.finalStatus;
+      if (status === 'paid') {
         onSuccess();
       } else if (res.data.zpReturn?.return_code === 3) {
         setError('Giao dịch đang xử lý, vui lòng đợi thêm và thử lại sau.');
@@ -127,14 +128,12 @@ const ZaloPayButton = ({ order, user, onSuccess }) => {
 
   return (
     <div className="space-y-3">
-      {/* Nút thanh toán chính */}
       <button
         onClick={handlePay}
         disabled={loading}
         className="w-full relative overflow-hidden rounded-2xl font-black text-[11px] uppercase tracking-widest py-4 px-6 transition-all disabled:opacity-60 disabled:cursor-not-allowed group"
         style={{ background: 'linear-gradient(135deg, #0068ff 0%, #004fcc 100%)', color: 'white' }}
       >
-        {/* Shimmer effect */}
         <span className="absolute inset-0 w-full h-full bg-white/20 -translate-x-full group-hover:translate-x-full transition-transform duration-700 skew-x-12" />
         <span className="relative flex items-center justify-center gap-3">
           {loading ? (
@@ -147,19 +146,17 @@ const ZaloPayButton = ({ order, user, onSuccess }) => {
             </>
           ) : (
             <>
-              {/* ZaloPay Logo SVG */}
-              <svg width="20" height="20" viewBox="0 0 40 40" fill="none" xmlns="http://www.w3.org/2000/svg">
+              <svg width="20" height="20" viewBox="0 0 40 40" fill="none">
                 <rect width="40" height="40" rx="8" fill="white" fillOpacity="0.2" />
                 <text x="5" y="28" fontSize="20" fontWeight="bold" fill="white">Z</text>
               </svg>
-              Thanh toán qua ZaloPay
+              {label}
             </>
           )}
         </span>
       </button>
 
-      {/* Nút kiểm tra trạng thái (sau khi đã có zpTransId) */}
-      {order.zpTransId && (
+      {transId && (
         <button
           onClick={handleQueryStatus}
           disabled={querying}
@@ -169,14 +166,12 @@ const ZaloPayButton = ({ order, user, onSuccess }) => {
         </button>
       )}
 
-      {/* Error message */}
       {error && (
         <div className="bg-red-50 border border-red-100 rounded-2xl p-4 text-xs text-red-600 font-medium text-center">
           ⚠️ {error}
         </div>
       )}
 
-      {/* Info */}
       <p className="text-[9px] text-center text-gray-400 leading-relaxed">
         Bảo mật bởi ZaloPay · Hỗ trợ ví ZaloPay, ATM, Visa, Mastercard
       </p>
@@ -184,19 +179,54 @@ const ZaloPayButton = ({ order, user, onSuccess }) => {
   );
 };
 
-//  Payment Success Banner 
-const PaymentSuccessBanner = ({ order }) => {
-  if (order.paymentStatus !== 'paid') return null;
+//  Breakdown thanh toán 2 lần 
+const PaymentBreakdown = ({ order }) => {
+  const depositAmount = order.depositAmount || Math.round(order.agreedPrice * 0.5);
+  const finalAmount = order.finalAmount || (order.agreedPrice - depositAmount);
+
   return (
-    <div className="bg-gradient-to-r from-green-500 to-emerald-600 text-white rounded-3xl p-6 flex items-center gap-4">
-      <div className="size-12 bg-white/20 rounded-2xl flex items-center justify-center text-2xl flex-shrink-0">
-        ✅
+    <div className="bg-gray-50 rounded-2xl p-4 space-y-2 text-sm">
+      <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest mb-3">Chi tiết thanh toán</p>
+
+      <div className="flex justify-between items-center">
+        <span className="text-gray-500">Giá chốt</span>
+        <span className="font-bold text-gray-900">{COMMISSION.format(order.agreedPrice)}</span>
       </div>
-      <div>
-        <p className="font-black text-sm uppercase tracking-widest mb-0.5">Đã thanh toán qua ZaloPay</p>
-        <p className="text-green-100 text-xs font-medium">
-          {order.agreedPrice?.toLocaleString('vi-VN')}đ · {order.zpPaidAt ? new Date(order.zpPaidAt).toLocaleString('vi-VN') : ''}
-        </p>
+
+      <div className="flex justify-between items-center">
+        <span className="text-gray-500 flex items-center gap-1.5">
+          Cọc 50%
+          {order.depositStatus === 'paid'
+            ? <span className="text-[9px] bg-green-100 text-green-600 px-2 py-0.5 rounded-full font-bold">✅ Đã cọc</span>
+            : <span className="text-[9px] bg-orange-100 text-orange-600 px-2 py-0.5 rounded-full font-bold animate-pulse">⏳ Chưa cọc</span>
+          }
+        </span>
+        <span className={`font-bold ${order.depositStatus === 'paid' ? 'text-green-600' : 'text-orange-500'}`}>
+          {COMMISSION.format(depositAmount)}
+        </span>
+      </div>
+
+      <div className="flex justify-between items-center">
+        <span className="text-gray-500 flex items-center gap-1.5">
+          Còn lại 50%
+          {order.finalStatus === 'paid'
+            ? <span className="text-[9px] bg-green-100 text-green-600 px-2 py-0.5 rounded-full font-bold">✅ Đã trả</span>
+            : <span className="text-[9px] bg-gray-100 text-gray-500 px-2 py-0.5 rounded-full font-bold">⏳ Chưa trả</span>
+          }
+        </span>
+        <span className={`font-bold ${order.finalStatus === 'paid' ? 'text-green-600' : 'text-gray-500'}`}>
+          {COMMISSION.format(finalAmount)}
+        </span>
+      </div>
+
+      <div className="border-t border-gray-200 pt-2 mt-2 flex justify-between items-center">
+        <span className="text-gray-500">Phí sàn ({order.commissionRate}%)</span>
+        <span className="font-bold text-pink-500">- {COMMISSION.format(order.commissionAmount)}</span>
+      </div>
+
+      <div className="flex justify-between items-center">
+        <span className="text-sm font-bold text-gray-700">Thợ thực nhận</span>
+        <span className="font-black text-green-600">{COMMISSION.format(order.makerEarning)}</span>
       </div>
     </div>
   );
@@ -212,12 +242,9 @@ const CustomOrderDetail = () => {
   const [order, setOrder] = useState(null);
   const [loading, setLoading] = useState(true);
   const [acting, setActing] = useState(false);
-
   const [reviewRating, setReviewRating] = useState(5);
   const [reviewComment, setReviewComment] = useState('');
   const [reviewSaving, setReviewSaving] = useState(false);
-
-  // Hiển thị thông báo nếu redirect về sau khi thanh toán
   const [paymentNotice, setPaymentNotice] = useState(null);
 
   const fetchOrder = useCallback(async () => {
@@ -231,16 +258,17 @@ const CustomOrderDetail = () => {
     }
   }, [id]);
 
-  useEffect(() => {
-    fetchOrder();
-  }, [fetchOrder]);
+  useEffect(() => { fetchOrder(); }, [fetchOrder]);
 
-  // Xử lý redirect về sau khi thanh toán ZaloPay
   useEffect(() => {
     const zpStatus = searchParams.get('zpstatus');
+    const zpType = searchParams.get('type');
     if (zpStatus === '1') {
-      setPaymentNotice({ type: 'success', msg: '🎉 Thanh toán ZaloPay thành công! Đơn của bạn đã hoàn thành.' });
-      fetchOrder(); // refresh để lấy trạng thái mới
+      const msg = zpType === 'deposit'
+        ? '🎉 Đã cọc thành công! Thợ sẽ bắt đầu thực hiện đơn sớm.'
+        : '🎉 Thanh toán hoàn tất! Đơn của bạn đã hoàn thành.';
+      setPaymentNotice({ type: 'success', msg });
+      fetchOrder();
     } else if (zpStatus === '0') {
       setPaymentNotice({ type: 'error', msg: '❌ Thanh toán thất bại hoặc bị hủy. Vui lòng thử lại.' });
     }
@@ -296,8 +324,16 @@ const CustomOrderDetail = () => {
   const canReview = isOwner && order.status === 'Hoàn thành' && !order.Review;
   const isPaid = order.paymentStatus === 'paid';
 
-  // Khách cần thanh toán khi đơn ở "Chờ xác nhận" và chưa thanh toán
-  const needsPayment = isOwner && order.status === 'Chờ xác nhận' && !isPaid;
+  // Deposit: khách cần cọc sau khi chọn thợ
+  const needsDeposit = isOwner && order.status === 'Đã chọn thợ' && order.depositStatus !== 'paid';
+  const depositPaid = order.depositStatus === 'paid';
+
+  // Final payment: khách cần trả nốt sau khi thợ báo xong
+  const needsFinalPayment = isOwner && order.status === 'Chờ xác nhận' && order.finalStatus !== 'paid';
+  const finalPaid = order.finalStatus === 'paid';
+
+  const depositAmount = order.depositAmount || Math.round((order.agreedPrice || 0) * 0.5);
+  const finalAmount = order.finalAmount || ((order.agreedPrice || 0) - depositAmount);
 
   return (
     <div className="min-h-screen bg-white font-sans py-16 px-6">
@@ -317,10 +353,7 @@ const CustomOrderDetail = () => {
             : 'bg-red-50 text-red-600 border border-red-200'
             }`}>
             {paymentNotice.msg}
-            <button
-              onClick={() => setPaymentNotice(null)}
-              className="ml-3 opacity-50 hover:opacity-100 text-xs"
-            >✕</button>
+            <button onClick={() => setPaymentNotice(null)} className="ml-3 opacity-50 hover:opacity-100 text-xs">✕</button>
           </div>
         )}
 
@@ -332,17 +365,24 @@ const CustomOrderDetail = () => {
               <span className={`inline-block px-4 py-1.5 rounded-full text-[9px] font-black uppercase ${STATUS_COLOR[order.status] || 'bg-gray-100 text-gray-500'}`}>
                 {order.status}
               </span>
-              {/* Payment badge */}
-              {isPaid && (
+              {depositPaid && (
                 <span className="inline-flex items-center gap-1.5 bg-green-500/20 text-green-400 border border-green-500/30 px-4 py-1.5 rounded-full text-[9px] font-black uppercase">
-                  <span className="size-1.5 bg-green-400 rounded-full" />
-                  Đã thanh toán ZaloPay
+                  <span className="size-1.5 bg-green-400 rounded-full" /> Đã cọc 50%
                 </span>
               )}
-              {needsPayment && (
+              {finalPaid && (
+                <span className="inline-flex items-center gap-1.5 bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 px-4 py-1.5 rounded-full text-[9px] font-black uppercase">
+                  <span className="size-1.5 bg-emerald-400 rounded-full" /> Đã thanh toán đủ
+                </span>
+              )}
+              {needsDeposit && (
+                <span className="inline-flex items-center gap-1.5 bg-orange-500/20 text-orange-400 border border-orange-500/30 px-4 py-1.5 rounded-full text-[9px] font-black uppercase animate-pulse">
+                  <span className="size-1.5 bg-orange-400 rounded-full" /> Chờ cọc 50%
+                </span>
+              )}
+              {needsFinalPayment && (
                 <span className="inline-flex items-center gap-1.5 bg-blue-500/20 text-blue-400 border border-blue-500/30 px-4 py-1.5 rounded-full text-[9px] font-black uppercase animate-pulse">
-                  <span className="size-1.5 bg-blue-400 rounded-full" />
-                  Chờ thanh toán
+                  <span className="size-1.5 bg-blue-400 rounded-full" /> Chờ thanh toán nốt
                 </span>
               )}
             </div>
@@ -364,13 +404,6 @@ const CustomOrderDetail = () => {
           <StatusTimeline current={order.status} />
         </div>
 
-        {/* Payment success banner (prominent) */}
-        {isPaid && (
-          <div className="mb-8">
-            <PaymentSuccessBanner order={order} />
-          </div>
-        )}
-
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
           <div className="lg:col-span-2 space-y-8">
 
@@ -383,7 +416,12 @@ const CustomOrderDetail = () => {
               )}
             </div>
 
-            {/* Commission info */}
+            {/* Payment breakdown — hiện khi đã chốt giá */}
+            {order.agreedPrice && (isOwner || isMaker) && (
+              <PaymentBreakdown order={order} />
+            )}
+
+            {/* Commission summary */}
             {order.agreedPrice && (isOwner || isMaker) && (
               <CommissionSummary
                 agreedPrice={order.agreedPrice}
@@ -515,55 +553,109 @@ const CustomOrderDetail = () => {
             <div className="bg-gray-50 rounded-3xl p-6 space-y-3 sticky top-28">
               <p className="text-[10px] font-black uppercase tracking-widest text-gray-400 mb-2">Thao tác</p>
 
-              {/*  ZALOPAY PAYMENT SECTION  */}
-              {needsPayment && (
+              {/*  BƯỚC 1: KHÁCH CỌC 50%  */}
+              {needsDeposit && (
                 <div className="space-y-4">
-                  {/* Payment info box */}
-                  <div className="bg-blue-50 border border-blue-100 rounded-2xl p-4">
-                    <p className="text-[10px] font-black text-blue-600 uppercase tracking-widest mb-2">
-                      💳 Thanh toán để hoàn tất đơn
+                  <div className="bg-orange-50 border border-orange-100 rounded-2xl p-4">
+                    <p className="text-[10px] font-black text-orange-600 uppercase tracking-widest mb-2">
+                      💳 Cọc 50% để thợ bắt đầu
                     </p>
                     <div className="space-y-1.5">
-                      <div className="flex justify-between items-center text-xs">
-                        <span className="text-gray-500">Số tiền</span>
-                        <span className="font-black text-gray-900">{order.agreedPrice?.toLocaleString('vi-VN')}đ</span>
+                      <div className="flex justify-between text-xs">
+                        <span className="text-gray-500">Tiền cọc (50%)</span>
+                        <span className="font-black text-orange-600">{COMMISSION.format(depositAmount)}</span>
                       </div>
-                      <div className="flex justify-between items-center text-xs">
-                        <span className="text-gray-500">Thợ nhận</span>
-                        <span className="font-bold text-green-600">{order.makerEarning?.toLocaleString('vi-VN')}đ</span>
-                      </div>
-                      <div className="flex justify-between items-center text-xs">
-                        <span className="text-gray-500">Phí sàn ({order.commissionRate}%)</span>
-                        <span className="font-bold text-pink-500">{order.commissionAmount?.toLocaleString('vi-VN')}đ</span>
+                      <div className="flex justify-between text-xs">
+                        <span className="text-gray-500">Còn lại sau khi nhận hàng</span>
+                        <span className="font-bold text-gray-500">{COMMISSION.format(finalAmount)}</span>
                       </div>
                     </div>
                   </div>
 
                   <ZaloPayButton
-                    order={order}
+                    label="Cọc 50% qua ZaloPay"
+                    endpoint="create-deposit"
+                    payload={{ customOrderId: order.id }}
                     user={user}
                     onSuccess={fetchOrder}
+                    transId={order.depositTransId}
                   />
 
-                  <div className="border-t border-gray-200 pt-3">
-                    <p className="text-[9px] text-gray-400 text-center">
-                      Sau khi thanh toán, đơn sẽ tự động chuyển sang <span className="font-bold text-green-600">Hoàn thành</span>
-                    </p>
-                  </div>
+                  <p className="text-[9px] text-gray-400 text-center">
+                    Thợ sẽ bắt đầu làm sau khi nhận được tiền cọc
+                  </p>
                 </div>
               )}
 
-              {/*  Đã thanh toán  */}
+              {/*  BƯỚC 2: KHÁCH THANH TOÁN NỐT 50%  */}
+              {needsFinalPayment && (
+                <div className="space-y-4">
+                  <div className="bg-blue-50 border border-blue-100 rounded-2xl p-4">
+                    <p className="text-[10px] font-black text-blue-600 uppercase tracking-widest mb-2">
+                      💳 Thanh toán 50% còn lại
+                    </p>
+                    <div className="space-y-1.5">
+                      <div className="flex justify-between text-xs">
+                        <span className="text-gray-500">Đã cọc trước</span>
+                        <span className="font-bold text-green-600">✅ {COMMISSION.format(depositAmount)}</span>
+                      </div>
+                      <div className="flex justify-between text-xs">
+                        <span className="text-gray-500">Còn phải trả</span>
+                        <span className="font-black text-blue-600">{COMMISSION.format(finalAmount)}</span>
+                      </div>
+                      <div className="flex justify-between text-xs">
+                        <span className="text-gray-500">Thợ nhận</span>
+                        <span className="font-bold text-green-600">{COMMISSION.format(order.makerEarning)}</span>
+                      </div>
+                      <div className="flex justify-between text-xs">
+                        <span className="text-gray-500">Phí sàn ({order.commissionRate}%)</span>
+                        <span className="font-bold text-pink-500">{COMMISSION.format(order.commissionAmount)}</span>
+                      </div>
+                    </div>
+                  </div>
+
+                  <ZaloPayButton
+                    label="Thanh toán nốt qua ZaloPay"
+                    endpoint="create-final-payment"
+                    payload={{ customOrderId: order.id }}
+                    user={user}
+                    onSuccess={fetchOrder}
+                    transId={order.finalTransId}
+                  />
+
+                  <p className="text-[9px] text-gray-400 text-center">
+                    Đơn sẽ tự động chuyển sang <span className="font-bold text-green-600">Hoàn thành</span> sau khi thanh toán
+                  </p>
+                </div>
+              )}
+
+              {/*  ĐÃ CỌC, ĐANG CHỜ THỢ LÀM ─ */}
+              {isOwner && depositPaid && order.status === 'Đã chọn thợ' && (
+                <div className="bg-purple-50 border border-purple-100 rounded-2xl p-4 text-center">
+                  <p className="text-[10px] font-black text-purple-700 uppercase tracking-widest">✅ Đã cọc 50%</p>
+                  <p className="text-[9px] text-purple-600 mt-1">Thợ sẽ bắt đầu thực hiện đơn của bạn</p>
+                </div>
+              )}
+
+              {/*  ĐÃ HOÀN THÀNH ─ */}
               {isOwner && isPaid && order.status === 'Hoàn thành' && (
                 <div className="bg-green-50 border border-green-200 rounded-2xl p-4 text-center">
                   <p className="text-2xl mb-1">🎉</p>
-                  <p className="text-[10px] font-black text-green-700 uppercase tracking-widest">Đã thanh toán</p>
-                  <p className="text-xs text-green-600 mt-1">{order.agreedPrice?.toLocaleString('vi-VN')}đ qua ZaloPay</p>
+                  <p className="text-[10px] font-black text-green-700 uppercase tracking-widest">Đã thanh toán đủ</p>
+                  <p className="text-xs text-green-600 mt-1">{COMMISSION.format(order.agreedPrice)} qua ZaloPay</p>
                 </div>
               )}
 
-              {/*  Maker actions  */}
-              {isMaker && order.status === 'Đã chọn thợ' && (
+              {/*  MAKER: CHỜ KHÁCH CỌC  */}
+              {isMaker && order.status === 'Đã chọn thợ' && !depositPaid && (
+                <div className="bg-amber-50 border border-amber-200 rounded-2xl p-4 text-center">
+                  <p className="text-[10px] font-bold text-amber-700 uppercase tracking-widest">⏳ Chờ khách cọc 50%</p>
+                  <p className="text-[9px] text-amber-600 mt-1">Bạn có thể bắt đầu sau khi khách thanh toán cọc</p>
+                </div>
+              )}
+
+              {/*  MAKER: BẮT ĐẦU (chỉ sau khi cọc) ─ */}
+              {isMaker && order.status === 'Đã chọn thợ' && depositPaid && (
                 <button
                   onClick={() => action('start')}
                   disabled={acting}
@@ -583,21 +675,21 @@ const CustomOrderDetail = () => {
                 </button>
               )}
 
-              {isMaker && order.status === 'Chờ xác nhận' && !isPaid && (
+              {isMaker && order.status === 'Chờ xác nhận' && !finalPaid && (
                 <div className="bg-amber-50 border border-amber-200 rounded-2xl p-4 text-center">
-                  <p className="text-[10px] font-bold text-amber-700 uppercase tracking-widest">⏳ Đang chờ khách thanh toán</p>
-                  <p className="text-[9px] text-amber-600 mt-1">Đơn sẽ hoàn thành sau khi khách thanh toán qua ZaloPay</p>
+                  <p className="text-[10px] font-bold text-amber-700 uppercase tracking-widest">⏳ Chờ khách thanh toán nốt</p>
+                  <p className="text-[9px] text-amber-600 mt-1">Đơn hoàn thành sau khi khách trả 50% còn lại</p>
                 </div>
               )}
 
-              {isMaker && isPaid && (
+              {isMaker && finalPaid && (
                 <div className="bg-green-50 border border-green-100 rounded-2xl p-4 text-center">
-                  <p className="text-[10px] font-black text-green-700 uppercase tracking-widest">✅ Khách đã thanh toán</p>
-                  <p className="text-[9px] text-green-600 mt-1">Thu nhập của bạn: {order.makerEarning?.toLocaleString('vi-VN')}đ</p>
+                  <p className="text-[10px] font-black text-green-700 uppercase tracking-widest">✅ Khách đã thanh toán đủ</p>
+                  <p className="text-[9px] text-green-600 mt-1">Thu nhập của bạn: {COMMISSION.format(order.makerEarning)}</p>
                 </div>
               )}
 
-              {/*  Cancel  */}
+              {/*  HỦY ĐƠN ─ */}
               {isOwner && ['Đang tìm thợ', 'Đã chọn thợ'].includes(order.status) && (
                 <button
                   onClick={() => { if (window.confirm('Xác nhận hủy đơn?')) action('cancel'); }}

@@ -209,3 +209,30 @@ exports.notifyMakerPaid = ({ to, makerName, amount, orderTitle, note }) =>
       </a>
     `),
   });
+
+exports.notifyDepositPaidToMaker = ({
+  to,
+  makerName,
+  customerName,
+  orderTitle,
+  depositAmount,
+  orderUrl,
+}) =>
+  send({
+    to,
+    subject: `💰 Khách đã cọc — Bạn có thể bắt đầu làm "${orderTitle}"`,
+    html: wrap(`
+      <p>Xin chào <b>${makerName}</b>!</p>
+      <p>Khách hàng <b>${customerName}</b> vừa thanh toán cọc 50% cho đơn:</p>
+      <div style="background:#f0fdf4; border-left: 4px solid #22c55e; padding: 14px 18px; border-radius: 8px; margin: 16px 0;">
+        <p style="margin:0; font-size:16px; font-weight:bold;">📦 ${orderTitle}</p>
+        <p style="margin:8px 0 0; font-size:18px; color:#16a34a; font-weight:bold;">
+          Tiền cọc: ${Number(depositAmount).toLocaleString("vi-VN")}đ
+        </p>
+      </div>
+      <p>Bạn có thể <b>bắt đầu thực hiện đơn</b> ngay bây giờ!</p>
+      <a href="${orderUrl}" style="display:inline-block; background:#f43f5e; color:white; padding:12px 24px; border-radius:999px; text-decoration:none; font-weight:bold; margin-top:8px;">
+        Xem đơn →
+      </a>
+    `),
+  });

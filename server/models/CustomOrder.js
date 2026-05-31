@@ -56,6 +56,23 @@ const CustomOrder = sequelize.define(
       defaultValue: "unpaid",
     },
     zpPaidAt: { type: DataTypes.DATE, allowNull: true },
+    // Cọc lần 1 (50%)
+    depositAmount: { type: DataTypes.INTEGER, allowNull: true },
+    depositStatus: {
+      type: DataTypes.ENUM("unpaid", "paid"),
+      defaultValue: "unpaid",
+    },
+    depositTransId: { type: DataTypes.STRING, allowNull: true },
+    depositPaidAt: { type: DataTypes.DATE, allowNull: true },
+
+    // Thanh toán lần 2 (50% còn lại)
+    finalAmount: { type: DataTypes.INTEGER, allowNull: true },
+    finalStatus: {
+      type: DataTypes.ENUM("unpaid", "paid"),
+      defaultValue: "unpaid",
+    },
+    finalTransId: { type: DataTypes.STRING, allowNull: true },
+    finalPaidAt: { type: DataTypes.DATE, allowNull: true },
   },
   {
     timestamps: true,
@@ -63,7 +80,9 @@ const CustomOrder = sequelize.define(
       { fields: ["status"] },
       { fields: ["userId"] },
       { fields: ["makerId"] },
-      { fields: ["zpTransId"] }, // index để callback lookup nhanh
+      { fields: ["zpTransId"] },
+      { fields: ["depositTransId"] },
+      { fields: ["finalTransId"] },
     ],
   },
 );
