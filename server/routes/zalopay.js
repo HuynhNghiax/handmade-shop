@@ -152,16 +152,15 @@ const _finalizeOrder = async (order, t) => {
     transaction: t,
   });
   if (!existingPayout) {
-    await CommissionDebt.create(
+    await MakerPayout.create(
       {
         makerId: makerProfile.id,
         customOrderId: order.id,
-        amount: order.shopEarning || 0,
+        amount: order.makerEarning || 0,
         agreedPrice: order.agreedPrice,
         commissionRate: order.commissionRate,
-        status: "da_thu",
-        paidAt: new Date(),
-        note: "Thu tự động qua ZaloPay",
+        status: "cho_tra",
+        note: "Tạo tự động qua ZaloPay",
       },
       { transaction: t },
     );

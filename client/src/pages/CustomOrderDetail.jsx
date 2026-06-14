@@ -246,6 +246,7 @@ const CustomOrderDetail = () => {
   const [reviewComment, setReviewComment] = useState('');
   const [reviewSaving, setReviewSaving] = useState(false);
   const [paymentNotice, setPaymentNotice] = useState(null);
+  const [pollingMsg, setPollingMsg] = useState(null);
 
   const fetchOrder = useCallback(async () => {
     try {
@@ -263,16 +264,49 @@ const CustomOrderDetail = () => {
   useEffect(() => {
     const zpStatus = searchParams.get('zpstatus');
     const zpType = searchParams.get('type');
-    if (zpStatus === '1') {
-      const msg = zpType === 'deposit'
-        ? '🎉 Đã cọc thành công! Thợ sẽ bắt đầu thực hiện đơn sớm.'
-        : '🎉 Thanh toán hoàn tất! Đơn của bạn đã hoàn thành.';
-      setPaymentNotice({ type: 'success', msg });
-      fetchOrder();
-    } else if (zpStatus === '0') {
-      setPaymentNotice({ type: 'error', msg: '❌ Thanh toán thất bại hoặc bị hủy. Vui lòng thử lại.' });
+    if (zpStatus !== '1') {
+      if (zpStatus === '0') {
+        setPaymentNotice({ type: 'error', msg: '❌ Thanh toán thất bại hoặc bị hủy. Vui lòng thử lại.' });
+      }
+      return;
     }
-  }, [searchParams]);
+
+    // Polling: chờ ZaloPay callback cập nhật DB (tối đa 12 giây)
+    const successMsg = zpType === 'deposit'
+      ? '🎉 Đã cọc thành công! Thợ sẽ bắt đầu thực hiện đơn sớm.'
+      : '🎉 Thanh toán hoàn tất! Đơn của bạn đã hoàn thành.';
+
+    const checkField = zpType === 'deposit' ? 'depositStatus' : 'finalStatus';
+    setPollingMsg('⏳ Đang xác nhận thanh toán...');
+
+    let attempts = 0;
+    const maxAttempts = 8;
+    const interval = setInterval(async () => {
+      attempts++;
+      try {
+        const res = await axios.get(`http://localhost:5000/api/custom-orders/${id}`);
+        const updatedOrder = res.data;
+        setOrder(updatedOrder);
+
+        if (updatedOrder[checkField] === 'paid' || updatedOrder.status === 'Hoàn thành') {
+          clearInterval(interval);
+          setPollingMsg(null);
+          setPaymentNotice({ type: 'success', msg: successMsg });
+          return;
+        }
+      } catch (err) {
+        console.error('[Polling] fetchOrder error:', err.message);
+      }
+
+      if (attempts >= maxAttempts) {
+        clearInterval(interval);
+        setPollingMsg(null);
+        setPaymentNotice({ type: 'success', msg: successMsg + ' (Trang sẽ tự cập nhật sau vài giây.)' });
+      }
+    }, 1500);
+
+    return () => clearInterval(interval);
+  }, [searchParams, id]);
 
   const authHeader = () => ({ headers: { token: `Bearer ${user?.accessToken}` } });
 
@@ -345,6 +379,17 @@ const CustomOrderDetail = () => {
         >
           ← Quay lại
         </button>
+
+        {/* Polling indicator */}
+        {pollingMsg && (
+          <div className="mb-4 p-4 rounded-2xl text-sm font-bold text-center bg-blue-50 text-blue-600 border border-blue-200 flex items-center justify-center gap-3">
+            <svg className="animate-spin size-4" fill="none" viewBox="0 0 24 24">
+              <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+              <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
+            </svg>
+            {pollingMsg}
+          </div>
+        )}
 
         {/* Payment notice banner */}
         {paymentNotice && (
