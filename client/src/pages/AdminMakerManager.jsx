@@ -437,8 +437,6 @@ const MakerDetailModal = ({ maker, onClose, onBan, onUnban, onUpdateRate, onAppr
     </div>
   );
 };
-  );
-};
 
 //  MAIN COMPONENT 
 const AdminMakerManager = () => {

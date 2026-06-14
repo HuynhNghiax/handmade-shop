@@ -149,7 +149,7 @@ const AdminDashboard = () => {
           {TABS.map(t => (
             <button
               key={t.id}
-              onClick={() => setTab(t.id)}
+              onClick={() => t.id === 'makers' ? navigate('/admin/makers') : setTab(t.id)}
               className={`flex items-center gap-4 px-6 py-4 rounded-2xl text-[10px] font-black uppercase tracking-widest transition-all ${tab === t.id ? 'bg-pink-500 text-white shadow-lg' : 'text-gray-500 hover:bg-white/5'
                 }`}
             >

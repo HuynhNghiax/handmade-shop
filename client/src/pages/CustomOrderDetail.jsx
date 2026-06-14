@@ -462,12 +462,12 @@ const CustomOrderDetail = () => {
             </div>
 
             {/* Payment breakdown — hiện khi đã chốt giá */}
-            {order.agreedPrice && (isOwner || isMaker) && (
+            {order.agreedPrice && (isOwner || isMaker || user?.isAdmin) && (
               <PaymentBreakdown order={order} />
             )}
 
             {/* Commission summary */}
-            {order.agreedPrice && (isOwner || isMaker) && (
+            {order.agreedPrice && (isOwner || isMaker || user?.isAdmin) && (
               <CommissionSummary
                 agreedPrice={order.agreedPrice}
                 commissionRate={order.commissionRate}
@@ -496,7 +496,7 @@ const CustomOrderDetail = () => {
             )}
 
             {/* Bids list */}
-            {isOwner && order.Bids?.length > 0 && (
+            {(isOwner || user?.isAdmin) && order.Bids?.length > 0 && (
               <div>
                 <h2 className="text-[10px] font-black uppercase tracking-widest text-gray-400 mb-4">
                   Báo giá nhận được ({order.Bids.length})
@@ -533,7 +533,7 @@ const CustomOrderDetail = () => {
                           </div>
                           <div className="flex flex-col items-end gap-3 flex-shrink-0">
                             <p className="text-xl font-bold text-pink-500">{bid.price?.toLocaleString('vi-VN')}đ</p>
-                            {!isAccepted && order.status === 'Đang tìm thợ' && (
+                            {!isAccepted && order.status === 'Đang tìm thợ' && isOwner && (
                               <button
                                 onClick={() => action('accept-bid', 'post', { bidId: bid.id })}
                                 disabled={acting}
@@ -775,6 +775,23 @@ const CustomOrderDetail = () => {
               )}
               {order.status === 'Hoàn thành' && !isOwner && !isMaker && (
                 <p className="text-center text-[10px] font-bold text-green-600 uppercase">🎉 Đơn hoàn thành!</p>
+              )}
+
+              {user?.isAdmin && (
+                <div className="bg-gray-100 border border-gray-200 rounded-2xl p-4 space-y-3 mt-4">
+                  <p className="text-[10px] font-black text-gray-700 uppercase tracking-widest">🛡️ Quản trị viên</p>
+                  <div className="text-xs space-y-1.5 text-gray-600">
+                    <p><span className="font-semibold text-gray-800">Trạng thái:</span> {order.status}</p>
+                    <p><span className="font-semibold text-gray-800">Khách hàng:</span> {order.Customer?.name} (ID: {order.userId})</p>
+                    {order.Maker ? (
+                      <p><span className="font-semibold text-gray-800">Thợ nhận:</span> {order.Maker.name} (ID: {order.makerId})</p>
+                    ) : (
+                      <p><span className="font-semibold text-gray-800">Thợ nhận:</span> Chưa chọn</p>
+                    )}
+                    <p><span className="font-semibold text-gray-800">Tiền cọc:</span> {order.depositStatus === 'paid' ? '✅ Đã cọc' : '❌ Chưa cọc'}</p>
+                    <p><span className="font-semibold text-gray-800">Thanh toán nốt:</span> {order.finalStatus === 'paid' ? '✅ Đã trả' : '❌ Chưa trả'}</p>
+                  </div>
+                </div>
               )}
             </div>
           </div>
