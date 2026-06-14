@@ -382,6 +382,15 @@ router.put("/admin/:id/request-update", verifyAdmin, async (req, res) => {
     profile.adminNote = adminNote.trim();
     await profile.save();
 
+    const user = await User.findByPk(profile.userId, { attributes: ["name", "email"] });
+    try {
+      mailer.notifyMakerUpdateRequired({
+        to: user.email,
+        makerName: user.name,
+        adminNote: adminNote.trim(),
+      });
+    } catch (_) {}
+
     res.json({ message: "Đã yêu cầu thợ bổ sung hồ sơ", profile });
   } catch (err) {
     res.status(500).json({ message: "Lỗi yêu cầu bổ sung", error: err.message });

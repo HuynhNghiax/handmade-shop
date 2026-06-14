@@ -15,6 +15,19 @@ const STATUS_COLOR = {
   'Đã hủy': 'bg-gray-100  text-gray-500',
 };
 
+const CATEGORY_MAP = {
+  theu: 'Thêu tay',
+  dan_len: 'Đan len / Móc',
+  go: 'Mộc / Khắc gỗ',
+  gom: 'Gốm / Đất sét',
+  da: 'Đồ da',
+  vai: 'May vải / Patchwork',
+  trang_suc: 'Trang sức thủ công',
+  ve_tranh: 'Vẽ / Tranh nghệ thuật',
+  giay_dep: 'Giày dép thủ công',
+  khac: 'Khác',
+};
+
 const StarRating = ({ rating }) => (
   <div className="flex items-center gap-0.5">
     {[1, 2, 3, 4, 5].map(n => (
@@ -27,7 +40,7 @@ const StarRating = ({ rating }) => (
 );
 
 // Modal xem chi tiết thợ + đơn của thợ
-const MakerDetailModal = ({ maker, onClose, onBan, onUnban, onUpdateRate, headers }) => {
+const MakerDetailModal = ({ maker, onClose, onBan, onUnban, onUpdateRate, onApprove, onReject, onRequestUpdate, headers }) => {
   const [orders, setOrders] = useState([]);
   const [debts, setDebts] = useState([]);
   const [loadingDetail, setLoadingDetail] = useState(true);
@@ -98,7 +111,7 @@ const MakerDetailModal = ({ maker, onClose, onBan, onUnban, onUpdateRate, header
           </div>
 
           {/* Actions */}
-          <div className="flex gap-2 mt-6">
+          <div className="flex flex-wrap gap-2 mt-6">
             <button
               onClick={() => onUpdateRate(maker.id, maker.User?.name, maker.commissionRate)}
               className="px-5 py-2 rounded-full border border-pink-400 text-pink-400 text-[10px] font-black uppercase hover:bg-pink-500 hover:text-white hover:border-pink-500 transition-all"
@@ -114,6 +127,30 @@ const MakerDetailModal = ({ maker, onClose, onBan, onUnban, onUpdateRate, header
             >
               {maker.isBanned ? '🔓 Mở khóa' : '🔒 Khóa tài khoản'}
             </button>
+
+            {/* Actions for Pending or Update-Required profile */}
+            {(maker.status === 'cho_duyet' || maker.status === 'can_bo_sung') && (
+              <>
+                <button
+                  onClick={() => onApprove(maker.id)}
+                  className="px-5 py-2 rounded-full bg-green-500 hover:bg-green-600 text-white text-[10px] font-black uppercase tracking-wider transition-all"
+                >
+                  Duyệt ✓
+                </button>
+                <button
+                  onClick={() => onRequestUpdate(maker.id)}
+                  className="px-5 py-2 rounded-full bg-blue-500 hover:bg-blue-600 text-white text-[10px] font-black uppercase tracking-wider transition-all"
+                >
+                  Yêu cầu bổ sung ⚠️
+                </button>
+                <button
+                  onClick={() => onReject(maker.id)}
+                  className="px-5 py-2 rounded-full bg-red-500 hover:bg-red-600 text-white text-[10px] font-black uppercase tracking-wider transition-all"
+                >
+                  Từ từ chối ✕
+                </button>
+              </>
+            )}
           </div>
         </div>
 
@@ -127,6 +164,27 @@ const MakerDetailModal = ({ maker, onClose, onBan, onUnban, onUpdateRate, header
               <div>
                 <p className="font-bold text-red-700 text-sm">Đang bị khóa</p>
                 <p className="text-xs text-red-500">Lý do: {maker.banReason || 'Vi phạm quy định'}</p>
+              </div>
+            </div>
+          )}
+
+          {/* Lý do từ chối hoặc yêu cầu bổ sung trước đó */}
+          {maker.rejectReason && (
+            <div className="bg-red-50 border border-red-100 rounded-2xl p-4 flex items-start gap-3">
+              <span className="text-xl">✕</span>
+              <div>
+                <p className="font-bold text-red-700 text-sm">Hồ sơ từng bị từ chối</p>
+                <p className="text-xs text-red-500">Lý do: {maker.rejectReason}</p>
+              </div>
+            </div>
+          )}
+
+          {maker.adminNote && (
+            <div className="bg-blue-50 border border-blue-100 rounded-2xl p-4 flex items-start gap-3">
+              <span className="text-xl">⚠️</span>
+              <div>
+                <p className="font-bold text-blue-700 text-sm">Yêu cầu bổ sung / Ghi chú từ admin</p>
+                <p className="text-xs text-blue-500">Nội dung: {maker.adminNote}</p>
               </div>
             </div>
           )}
@@ -146,10 +204,72 @@ const MakerDetailModal = ({ maker, onClose, onBan, onUnban, onUpdateRate, header
             ))}
           </div>
 
+          {/* Chi tiết thông tin hồ sơ mới */}
+          <div className="bg-gray-50 rounded-3xl p-6 border border-gray-100 space-y-6">
+            <h4 className="text-xs font-black uppercase tracking-wider text-pink-500">Thông tin hồ sơ đăng ký</h4>
+            
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              <div className="flex items-start gap-3">
+                <span className="text-xl">🏷️</span>
+                <div>
+                  <p className="text-[10px] font-black uppercase text-gray-400">Danh mục nghề</p>
+                  <p className="text-sm font-semibold text-gray-800">{CATEGORY_MAP[maker.category] || maker.category || 'Chưa chọn'}</p>
+                </div>
+              </div>
+
+              <div className="flex items-start gap-3">
+                <span className="text-xl">🕒</span>
+                <div>
+                  <p className="text-[10px] font-black uppercase text-gray-400">Kinh nghiệm</p>
+                  <p className="text-sm font-semibold text-gray-800">
+                    {maker.yearsExp !== undefined && maker.yearsExp !== null ? `${maker.yearsExp} năm` : 'Chưa nhập'}
+                  </p>
+                </div>
+              </div>
+
+              <div className="flex items-start gap-3">
+                <span className="text-xl">📍</span>
+                <div>
+                  <p className="text-[10px] font-black uppercase text-gray-400">Tỉnh / Thành phố hoạt động</p>
+                  <p className="text-sm font-semibold text-gray-800">{maker.province || 'Chưa nhập'}</p>
+                </div>
+              </div>
+
+              <div className="flex items-start gap-3">
+                <span className="text-xl">💰</span>
+                <div>
+                  <p className="text-[10px] font-black uppercase text-gray-400">Giá dịch vụ tham khảo</p>
+                  <p className="text-sm font-semibold text-gray-800">
+                    {maker.priceFrom || maker.priceTo ? `${fmt(maker.priceFrom)} - ${fmt(maker.priceTo)}` : 'Chưa đặt'}
+                  </p>
+                </div>
+              </div>
+            </div>
+
+            {/* Bank Info */}
+            <div className="border-t border-gray-200 pt-4 flex items-start gap-3">
+              <span className="text-xl">🏦</span>
+              <div>
+                <p className="text-[10px] font-black uppercase text-gray-400">Thông tin ngân hàng nhận thanh toán</p>
+                <p className="text-sm font-semibold text-gray-800 whitespace-pre-wrap">{maker.bankInfo || 'Chưa cung cấp'}</p>
+              </div>
+            </div>
+
+            {/* Bio */}
+            {maker.bio && (
+              <div className="border-t border-gray-200 pt-4">
+                <p className="text-[10px] font-black uppercase text-gray-400 mb-2">Giới thiệu bản thân</p>
+                <p className="text-sm text-gray-600 italic bg-white p-4 rounded-2xl border border-gray-100 whitespace-pre-wrap">
+                  "{maker.bio}"
+                </p>
+              </div>
+            )}
+          </div>
+
           {/* Skills */}
           {maker.skills && (
             <div>
-              <p className="text-[9px] font-black uppercase tracking-widest text-gray-400 mb-3">Kỹ năng</p>
+              <p className="text-[9px] font-black uppercase tracking-widest text-gray-400 mb-3">Kỹ năng chuyên môn</p>
               <div className="flex flex-wrap gap-2">
                 {maker.skills.split(',').filter(Boolean).map(s => (
                   <span key={s} className="bg-pink-50 text-pink-500 text-xs font-bold px-3 py-1 rounded-full">
@@ -160,9 +280,89 @@ const MakerDetailModal = ({ maker, onClose, onBan, onUnban, onUpdateRate, header
             </div>
           )}
 
+          {/* CCCD / Định danh */}
+          <div className="space-y-3 border-t border-gray-100 pt-6">
+            <p className="text-[9px] font-black uppercase tracking-widest text-gray-400">Ảnh CCCD / Xác minh danh tính</p>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <div>
+                <p className="text-[9px] text-gray-400 mb-1">Mặt trước CCCD</p>
+                {maker.idCardFront ? (
+                  <a href={maker.idCardFront} target="_blank" rel="noopener noreferrer" className="block relative aspect-video rounded-2xl overflow-hidden border border-gray-200 group">
+                    <img src={maker.idCardFront} alt="Mặt trước CCCD" className="w-full h-full object-cover transition group-hover:scale-105" />
+                    <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition flex items-center justify-center">
+                      <span className="text-white text-xs font-bold">Xem ảnh lớn 🔍</span>
+                    </div>
+                  </a>
+                ) : (
+                  <div className="aspect-video bg-gray-100 rounded-2xl flex items-center justify-center text-xs text-gray-400 border border-gray-200 border-dashed">
+                    Chưa upload mặt trước
+                  </div>
+                )}
+              </div>
+              <div>
+                <p className="text-[9px] text-gray-400 mb-1">Mặt sau CCCD</p>
+                {maker.idCardBack ? (
+                  <a href={maker.idCardBack} target="_blank" rel="noopener noreferrer" className="block relative aspect-video rounded-2xl overflow-hidden border border-gray-200 group">
+                    <img src={maker.idCardBack} alt="Mặt sau CCCD" className="w-full h-full object-cover transition group-hover:scale-105" />
+                    <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition flex items-center justify-center">
+                      <span className="text-white text-xs font-bold">Xem ảnh lớn 🔍</span>
+                    </div>
+                  </a>
+                ) : (
+                  <div className="aspect-video bg-gray-100 rounded-2xl flex items-center justify-center text-xs text-gray-400 border border-gray-200 border-dashed">
+                    Chưa upload mặt sau
+                  </div>
+                )}
+              </div>
+            </div>
+          </div>
+
+          {/* Portfolio */}
+          {maker.portfolio && maker.portfolio.length > 0 && (
+            <div className="space-y-3 border-t border-gray-100 pt-6">
+              <p className="text-[9px] font-black uppercase tracking-widest text-gray-400">Sản phẩm tiêu biểu / Portfolio ({maker.portfolio.length})</p>
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                {maker.portfolio.map((item, i) => {
+                  const isImage = item.match(/\.(jpeg|jpg|gif|png|webp|svg)/i) || item.includes('/uploads/') || item.startsWith('data:image/');
+                  if (isImage) {
+                    return (
+                      <a
+                        key={i}
+                        href={item}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="block relative aspect-square rounded-2xl overflow-hidden border border-gray-200 group bg-gray-50"
+                      >
+                        <img src={item} alt={`Portfolio ${i + 1}`} className="w-full h-full object-cover transition group-hover:scale-105" />
+                        <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition flex items-center justify-center">
+                          <span className="text-white text-[10px] font-bold">Phóng to 🔍</span>
+                        </div>
+                      </a>
+                    );
+                  } else {
+                    return (
+                      <a
+                        key={i}
+                        href={item}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="flex flex-col items-center justify-center p-4 bg-gray-50 border border-gray-200 rounded-2xl text-center hover:bg-pink-50 hover:border-pink-300 transition-all group"
+                      >
+                        <span className="text-2xl group-hover:scale-110 transition-transform">🔗</span>
+                        <span className="text-[10px] font-bold text-gray-600 mt-2 truncate w-full group-hover:text-pink-500">
+                          {item.replace(/^https?:\/\/(www\.)?/, '')}
+                        </span>
+                      </a>
+                    );
+                  }
+                })}
+              </div>
+            </div>
+          )}
+
           {/* Đơn đang thực hiện */}
           {!loadingDetail && activeOrders.length > 0 && (
-            <div>
+            <div className="border-t border-gray-100 pt-6">
               <p className="text-[9px] font-black uppercase tracking-widest text-gray-400 mb-3 flex items-center gap-2">
                 <span className="size-2 bg-amber-400 rounded-full animate-pulse" />
                 Đơn đang thực hiện ({activeOrders.length})
@@ -188,7 +388,7 @@ const MakerDetailModal = ({ maker, onClose, onBan, onUnban, onUpdateRate, header
 
           {/* Lịch sử đơn */}
           {!loadingDetail && doneOrders.length > 0 && (
-            <div>
+            <div className="border-t border-gray-100 pt-6">
               <p className="text-[9px] font-black uppercase tracking-widest text-gray-400 mb-3">Lịch sử hoàn thành ({doneOrders.length})</p>
               <div className="space-y-2 max-h-48 overflow-y-auto pr-1">
                 {doneOrders.map(o => (
@@ -209,7 +409,7 @@ const MakerDetailModal = ({ maker, onClose, onBan, onUnban, onUpdateRate, header
 
           {/* Công nợ */}
           {!loadingDetail && debts.length > 0 && (
-            <div>
+            <div className="border-t border-gray-100 pt-6">
               <p className="text-[9px] font-black uppercase tracking-widest text-gray-400 mb-3">
                 Công nợ hoa hồng ({debts.length} khoản)
               </p>
@@ -235,6 +435,8 @@ const MakerDetailModal = ({ maker, onClose, onBan, onUnban, onUpdateRate, header
         </div>
       </div>
     </div>
+  );
+};
   );
 };
 
@@ -275,20 +477,45 @@ const AdminMakerManager = () => {
   }, [user]);
 
   const approve = async (id) => {
+    const note = window.prompt('Ghi chú duyệt hồ sơ (không bắt buộc):');
+    if (note === null) return;
     setActing(id);
     try {
-      await axios.put(`http://localhost:5000/api/makers/admin/${id}/approve`, {}, headers());
+      await axios.put(`http://localhost:5000/api/makers/admin/${id}/approve`, { adminNote: note.trim() }, headers());
       await fetchAll();
+      setSelectedMaker(null);
     } catch (err) { alert(err.response?.data?.message || 'Lỗi!'); }
     finally { setActing(null); }
   };
 
   const reject = async (id) => {
-    if (!window.confirm('Xác nhận từ chối hồ sơ này?')) return;
+    const reason = window.prompt('Nhập lý do từ chối hồ sơ (bắt buộc, tối thiểu 10 ký tự):');
+    if (reason === null) return;
+    if (reason.trim().length < 10) {
+      alert('Lý do từ chối phải từ 10 ký tự trở lên.');
+      return;
+    }
     setActing(id);
     try {
-      await axios.put(`http://localhost:5000/api/makers/admin/${id}/reject`, {}, headers());
+      await axios.put(`http://localhost:5000/api/makers/admin/${id}/reject`, { rejectReason: reason.trim() }, headers());
       await fetchAll();
+      setSelectedMaker(null);
+    } catch (err) { alert(err.response?.data?.message || 'Lỗi!'); }
+    finally { setActing(null); }
+  };
+
+  const requestUpdate = async (id) => {
+    const note = window.prompt('Nhập yêu cầu bổ sung thông tin hồ sơ (bắt buộc, tối thiểu 10 ký tự):');
+    if (note === null) return;
+    if (note.trim().length < 10) {
+      alert('Yêu cầu bổ sung phải từ 10 ký tự trở lên.');
+      return;
+    }
+    setActing(id);
+    try {
+      await axios.put(`http://localhost:5000/api/makers/admin/${id}/request-update`, { adminNote: note.trim() }, headers());
+      await fetchAll();
+      setSelectedMaker(null);
     } catch (err) { alert(err.response?.data?.message || 'Lỗi!'); }
     finally { setActing(null); }
   };
@@ -363,6 +590,9 @@ const AdminMakerManager = () => {
           onBan={ban}
           onUnban={unban}
           onUpdateRate={updateRate}
+          onApprove={approve}
+          onReject={reject}
+          onRequestUpdate={requestUpdate}
           headers={headers}
         />
       )}
@@ -418,9 +648,29 @@ const AdminMakerManager = () => {
                     {m.User?.name?.charAt(0)}
                   </div>
                   <div className="flex-1">
-                    <p className="font-bold text-gray-950">{m.User?.name}</p>
-                    <p className="text-xs text-gray-400">{m.User?.email}</p>
-                    {m.bio && <p className="text-xs text-gray-500 italic mt-1 line-clamp-1">"{m.bio}"</p>}
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <p className="font-bold text-gray-950">{m.User?.name}</p>
+                      <span className="text-[10px] bg-pink-50 text-pink-600 font-bold px-2 py-0.5 rounded-full">
+                        {CATEGORY_MAP[m.category] || m.category || 'Khác'}
+                      </span>
+                      {m.yearsExp !== undefined && m.yearsExp !== null && (
+                        <span className="text-[10px] bg-purple-50 text-purple-600 font-bold px-2 py-0.5 rounded-full">
+                          {m.yearsExp} năm KN
+                        </span>
+                      )}
+                      {m.province && (
+                        <span className="text-[10px] bg-blue-50 text-blue-600 font-bold px-2 py-0.5 rounded-full">
+                          📍 {m.province}
+                        </span>
+                      )}
+                      {m.status === 'can_bo_sung' && (
+                        <span className="text-[10px] bg-amber-50 text-amber-600 font-black uppercase tracking-wider px-2 py-0.5 rounded-full animate-pulse">
+                          Chờ bổ sung
+                        </span>
+                      )}
+                    </div>
+                    <p className="text-xs text-gray-400 mt-0.5">{m.User?.email}</p>
+                    {m.bio && <p className="text-xs text-gray-500 italic mt-1.5 line-clamp-2 bg-gray-50 p-2.5 rounded-xl border border-gray-100">"{m.bio}"</p>}
                     {m.skills && (
                       <div className="flex flex-wrap gap-1 mt-2">
                         {m.skills.split(',').slice(0, 4).map(s => (
@@ -431,24 +681,31 @@ const AdminMakerManager = () => {
                       </div>
                     )}
                   </div>
-                  <div className="flex gap-2 flex-shrink-0">
+                  <div className="flex flex-col sm:flex-row gap-2 flex-shrink-0">
                     <button
                       onClick={() => setSelectedMaker(m)}
-                      className="border border-gray-200 text-gray-600 px-4 py-2 rounded-xl text-xs font-bold hover:bg-gray-50 transition-colors"
+                      className="border border-gray-200 text-gray-600 px-3 py-2 rounded-xl text-xs font-bold hover:bg-gray-50 transition-colors"
                     >
-                      Xem hồ sơ
+                      Chi tiết
                     </button>
                     <button
                       onClick={() => approve(m.id)}
                       disabled={acting === m.id}
-                      className="bg-green-500 text-white px-5 py-2 rounded-xl text-xs font-bold hover:bg-green-600 transition-colors disabled:opacity-50"
+                      className="bg-green-500 text-white px-3 py-2 rounded-xl text-xs font-bold hover:bg-green-600 transition-colors disabled:opacity-50"
                     >
                       {acting === m.id ? '...' : 'Duyệt ✓'}
                     </button>
                     <button
+                      onClick={() => requestUpdate(m.id)}
+                      disabled={acting === m.id}
+                      className="bg-blue-500 text-white px-3 py-2 rounded-xl text-xs font-bold hover:bg-blue-600 transition-colors disabled:opacity-50"
+                    >
+                      Cần bổ sung
+                    </button>
+                    <button
                       onClick={() => reject(m.id)}
                       disabled={acting === m.id}
-                      className="border border-red-200 text-red-500 px-5 py-2 rounded-xl text-xs font-bold hover:bg-red-50 transition-colors disabled:opacity-50"
+                      className="border border-red-200 text-red-500 px-3 py-2 rounded-xl text-xs font-bold hover:bg-red-50 transition-colors disabled:opacity-50"
                     >
                       Từ chối
                     </button>
@@ -559,11 +816,16 @@ const AdminMakerManager = () => {
 
                   {/* Status */}
                   <div className="hidden sm:block flex-shrink-0">
-                    <span className={`inline-flex px-3 py-1 rounded-lg text-xs font-semibold ${m.status === 'da_duyet' ? 'bg-green-50 text-green-600' :
-                        m.status === 'tu_choi' ? 'bg-red-50 text-red-500' :
-                          'bg-yellow-50 text-yellow-600'
-                      }`}>
-                      {m.status === 'da_duyet' ? 'Đã duyệt' : m.status === 'tu_choi' ? 'Từ chối' : 'Chờ duyệt'}
+                    <span className={`inline-flex px-3 py-1 rounded-lg text-xs font-semibold ${
+                      m.status === 'da_duyet' ? 'bg-green-50 text-green-600' :
+                      m.status === 'tu_choi' ? 'bg-red-50 text-red-500' :
+                      m.status === 'can_bo_sung' ? 'bg-blue-50 text-blue-600' :
+                      'bg-yellow-50 text-yellow-600'
+                    }`}>
+                      {m.status === 'da_duyet' ? 'Đã duyệt' :
+                       m.status === 'tu_choi' ? 'Từ chối' :
+                       m.status === 'can_bo_sung' ? 'Cần bổ sung' :
+                       'Chờ duyệt'}
                     </span>
                   </div>
 

@@ -145,15 +145,36 @@ exports.notifyMakerApproved = ({ to, makerName }) =>
     `),
   });
 
-exports.notifyMakerRejected = ({ to, makerName }) =>
+exports.notifyMakerRejected = ({ to, makerName, reason }) =>
   send({
     to,
     subject: `❌ Hồ sơ thợ chưa được duyệt — PinkyCrafts`,
     html: wrap(`
       <p>Xin chào <b>${makerName}</b>!</p>
       <p>Rất tiếc, hồ sơ thợ của bạn <b>chưa đạt yêu cầu</b> để được duyệt lần này.</p>
-      <a href="${process.env.CLIENT_URL}/become-maker" style="display:inline-block; background:#6b7280; color:white; padding:12px 24px; border-radius:999px; text-decoration:none; font-weight:bold; margin-top:8px;">
+      ${reason ? `<div style="background:#fef2f2; border-left: 4px solid #ef4444; padding: 14px 18px; border-radius: 8px; margin: 16px 0;">
+        <p style="margin:0; font-size:13px; color:#991b1b;"><b>Lý do từ chối:</b> ${reason}</p>
+      </div>` : ""}
+      <p>Bạn có thể điều chỉnh và gửi lại hồ sơ bất kỳ lúc nào.</p>
+      <a href="${process.env.CLIENT_URL}/become-maker" style="display:inline-block; background:#f43f5e; color:white; padding:12px 24px; border-radius:999px; text-decoration:none; font-weight:bold; margin-top:8px;">
         Cập nhật hồ sơ →
+      </a>
+    `),
+  });
+
+exports.notifyMakerUpdateRequired = ({ to, makerName, adminNote }) =>
+  send({
+    to,
+    subject: `⚠️ Yêu cầu bổ sung hồ sơ thợ — PinkyCrafts`,
+    html: wrap(`
+      <p>Xin chào <b>${makerName}</b>!</p>
+      <p>Admin đã xem xét hồ sơ của bạn và yêu cầu <b>bổ sung/cập nhật thông tin</b> để có thể phê duyệt:</p>
+      <div style="background:#eff6ff; border-left: 4px solid #3b82f6; padding: 14px 18px; border-radius: 8px; margin: 16px 0;">
+        <p style="margin:0; font-size:13px; color:#1e40af;"><b>Yêu cầu từ Admin:</b> ${adminNote}</p>
+      </div>
+      <p>Vui lòng cập nhật các thông tin được yêu cầu và nộp lại hồ sơ.</p>
+      <a href="${process.env.CLIENT_URL}/become-maker" style="display:inline-block; background:#3b82f6; color:white; padding:12px 24px; border-radius:999px; text-decoration:none; font-weight:bold; margin-top:8px;">
+        Cập nhật hồ sơ ngay →
       </a>
     `),
   });
