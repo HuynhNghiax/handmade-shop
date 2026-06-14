@@ -20,6 +20,7 @@ import MakerProfile from './pages/MakerProfile';
 
 import AdminDashboard from './pages/AdminDashboard';
 import AdminProductManager from './pages/AdminProductManager';
+import AdminMakerManager from './pages/AdminMakerManager';
 import ProtectedRoute from './components/ProtectedRoute';
 
 import MakerDashboard from './pages/MakerDashboard';
@@ -57,6 +58,9 @@ function App() {
         } />
         <Route path="/admin/products" element={
           <ProtectedRoute><AdminProductManager /></ProtectedRoute>
+        } />
+        <Route path="/admin/makers" element={
+          <ProtectedRoute><AdminMakerManager /></ProtectedRoute>
         } />
 
         {/*  404  */}

@@ -282,7 +282,7 @@ const BecomeMaker = () => {
     }
   };
 
-  const canEditForm = !profile || profile.status === 'tu_choi' || profile.status === 'can_bo_sung';
+  const canEditForm = !profile;
   const isEditing = !!profile && (profile.status === 'da_duyet');
   const needResubmit = profile && (profile.status === 'tu_choi' || profile.status === 'can_bo_sung');
 
