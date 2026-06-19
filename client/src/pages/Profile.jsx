@@ -56,6 +56,31 @@ const Profile = () => {
     if (user) fetchProfile();
   }, [user]);
 
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    if (params.get('zpstatus') === '1' && params.get('type') === 'shop') {
+      alert("🎉 Thanh toán đơn hàng qua ZaloPay thành công!");
+      navigate('/profile', { replace: true });
+    }
+  }, []);
+
+  const handlePaymentRetry = async (orderId) => {
+    try {
+      const res = await axios.post('http://localhost:5000/api/zalopay/create-shop-order-payment', {
+        orderId
+      }, {
+        headers: { token: `Bearer ${user.accessToken}` }
+      });
+      if (res.data && res.data.order_url) {
+        window.location.href = res.data.order_url;
+      } else {
+        alert("Không tạo được liên kết thanh toán, vui lòng thử lại!");
+      }
+    } catch (err) {
+      alert("Lỗi: " + (err.response?.data?.message || err.message));
+    }
+  };
+
   const confirmReceived = async (id) => {
     if (window.confirm("Sếp xác nhận đã nhận được hàng rồi chứ?")) {
       try {
@@ -214,6 +239,14 @@ const Profile = () => {
                         }`}>
                         {order.status}
                       </span>
+                      <span className={`px-3 py-1 rounded-full text-[9px] font-black uppercase ${order.paymentMethod === 'ZaloPay' ? 'bg-indigo-100 text-indigo-600' : 'bg-gray-100 text-gray-600'}`}>
+                        {order.paymentMethod || 'COD'}
+                      </span>
+                      {order.paymentMethod === 'ZaloPay' && (
+                        <span className={`px-3 py-1 rounded-full text-[9px] font-black uppercase ${order.paymentStatus === 'paid' ? 'bg-green-100 text-green-600' : 'bg-yellow-100 text-yellow-600'}`}>
+                          {order.paymentStatus === 'paid' ? 'Đã thanh toán' : 'Chờ thanh toán'}
+                        </span>
+                      )}
                       <span className="text-gray-300 text-xs">#{order.id}</span>
                       <span className="text-gray-400 text-xs italic ml-auto md:ml-0">{new Date(order.createdAt).toLocaleDateString('vi-VN')}</span>
                     </div>
@@ -240,7 +273,12 @@ const Profile = () => {
                     <p className="text-2xl font-bold text-gray-950 mb-0 md:mb-4">{order.totalAmount?.toLocaleString('vi-VN')}đ</p>
                     <div className="flex gap-2">
                       {order.status === "Chờ xác nhận" && (
-                        <button onClick={() => cancelOrder(order.id)} className="border-2 border-red-100 text-red-500 px-6 py-2.5 rounded-full text-[10px] font-black uppercase tracking-widest hover:bg-red-50 transition-all">Hủy đơn</button>
+                        <>
+                          {order.paymentMethod === 'ZaloPay' && order.paymentStatus !== 'paid' && (
+                            <button onClick={() => handlePaymentRetry(order.id)} className="bg-indigo-600 text-white px-6 py-2.5 rounded-full text-[10px] font-black uppercase tracking-widest hover:bg-indigo-700 transition-all shadow-md shadow-indigo-500/20">Thanh toán</button>
+                          )}
+                          <button onClick={() => cancelOrder(order.id)} className="border-2 border-red-100 text-red-500 px-6 py-2.5 rounded-full text-[10px] font-black uppercase tracking-widest hover:bg-red-50 transition-all">Hủy đơn</button>
+                        </>
                       )}
                       {order.status === "Đang giao" && (
                         <button onClick={() => confirmReceived(order.id)} className="bg-gray-950 text-white px-6 py-2.5 rounded-full text-[10px] font-black uppercase tracking-widest hover:bg-pink-500 transition-all shadow-xl">Đã nhận hàng</button>
