@@ -30,6 +30,22 @@ const Order = sequelize.define('Order', {
     status: {
         type: DataTypes.STRING,
         defaultValue: "Chờ xác nhận"
+    },
+    paymentMethod: {
+        type: DataTypes.STRING,
+        defaultValue: "COD"
+    },
+    paymentStatus: {
+        type: DataTypes.STRING,
+        defaultValue: "pending"
+    },
+    zpTransId: {
+        type: DataTypes.STRING,
+        allowNull: true
+    },
+    zpPaidAt: {
+        type: DataTypes.DATE,
+        allowNull: true
     }
 }, {
     timestamps: true

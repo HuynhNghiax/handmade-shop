@@ -21,6 +21,7 @@ const { MAKER_BADGE } = require("../constants/business");
 const sequelize = require("../config/db");
 const mailer = require("../utils/mailer");
 const User = require("../models/User");
+const Order = require("../models/Order");
 
 const ZALOPAY = {
   app_id: parseInt(process.env.ZALOPAY_APP_ID),
@@ -55,15 +56,20 @@ const createZaloPayOrder = async ({
 }) => {
   const appTime = Date.now();
 
+  const redirectUrl = type === "shop"
+    ? `${CLIENT_URL}/profile?zpstatus=1&type=shop&orderId=${orderId}`
+    : `${CLIENT_URL}/custom-order/${orderId}?zpstatus=1&type=${type}`;
+
   const embedData = JSON.stringify({
-    customOrderId: orderId,
-    paymentType: type, // "deposit" | "final"
-    redirecturl: `${CLIENT_URL}/custom-order/${orderId}?zpstatus=1&type=${type}`,
+    customOrderId: type === "shop" ? null : orderId,
+    orderId: type === "shop" ? orderId : null,
+    paymentType: type, // "deposit" | "final" | "shop"
+    redirecturl: redirectUrl,
   });
 
   const items = JSON.stringify([
     {
-      itemid: `custom_order_${orderId}_${type}`,
+      itemid: type === "shop" ? `order_${orderId}` : `custom_order_${orderId}_${type}`,
       itemname: description,
       itemprice: amount,
       itemquantity: 1,
@@ -325,7 +331,18 @@ router.post("/callback", async (req, res) => {
       paymentType = "legacy";
     }
 
+    let regularOrder = null;
     if (!order) {
+      regularOrder = await Order.findOne({
+        where: { zpTransId: app_trans_id },
+        transaction: t,
+      });
+      if (regularOrder) {
+        paymentType = "shop";
+      }
+    }
+
+    if (!order && !regularOrder) {
       await t.rollback();
       console.warn(
         "[ZaloPay callback] Order not found for trans:",
@@ -450,6 +467,28 @@ router.post("/callback", async (req, res) => {
       return res.json({ return_code: 1, return_message: "success" });
     }
 
+    //  SHOP ORDER (đơn hàng thường trên shop)
+    if (paymentType === "shop") {
+      if (regularOrder.paymentStatus === "paid") {
+        await t.rollback();
+        return res.json({
+          return_code: 1,
+          return_message: "already processed",
+        });
+      }
+
+      regularOrder.paymentStatus = "paid";
+      regularOrder.zpPaidAt = new Date(app_time);
+      await regularOrder.save({ transaction: t });
+
+      await t.commit();
+
+      console.log(
+        `[ZaloPay callback] ✅ SHOP ORDER paid. Order ${regularOrder.id}. Trans: ${app_trans_id}`,
+      );
+      return res.json({ return_code: 1, return_message: "success" });
+    }
+
     await t.rollback();
     return res.json({ return_code: 1, return_message: "ok" });
   } catch (err) {
@@ -568,6 +607,57 @@ router.post("/create-order", verifyToken, async (req, res) => {
     res
       .status(500)
       .json({ message: "Lỗi tạo đơn ZaloPay", error: err.message });
+  }
+});
+
+//  POST /api/zalopay/create-shop-order-payment  — Tạo đơn thanh toán shop
+router.post("/create-shop-order-payment", verifyToken, async (req, res) => {
+  try {
+    const { orderId } = req.body;
+
+    const order = await Order.findByPk(orderId);
+    if (!order)
+      return res.status(404).json({ message: "Không tìm thấy đơn hàng" });
+    if (order.userId !== req.user.id)
+      return res.status(403).json({ message: "Bạn không phải chủ đơn hàng này!" });
+    if (order.status === "Đã hủy")
+      return res.status(400).json({ message: "Đơn hàng đã bị hủy!" });
+    if (order.paymentStatus === "paid")
+      return res.status(400).json({ message: "Đơn hàng này đã được thanh toán rồi!" });
+
+    const transId = genTransId(order.id, "s");
+
+    const zpData = await createZaloPayOrder({
+      userId: req.user.id,
+      orderId: order.id,
+      amount: order.totalAmount,
+      description: `Thanh toán đơn hàng #${order.id}`,
+      transId,
+      type: "shop",
+    });
+
+    if (zpData.return_code !== 1) {
+      console.error("[ZaloPay create-shop-order-payment] Error:", zpData);
+      return res.status(502).json({
+        message: "ZaloPay từ chối tạo đơn: " + zpData.return_message,
+        zpData,
+      });
+    }
+
+    order.zpTransId = transId;
+    await order.save();
+
+    res.json({
+      order_url: zpData.order_url,
+      zp_trans_token: zpData.zp_trans_token,
+      app_trans_id: transId,
+      amount: order.totalAmount,
+    });
+  } catch (err) {
+    console.error("[ZaloPay POST /create-shop-order-payment]", err.message);
+    res
+      .status(500)
+      .json({ message: "Lỗi tạo đơn thanh toán ZaloPay", error: err.message });
   }
 });
 
