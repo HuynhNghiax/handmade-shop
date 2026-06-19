@@ -548,7 +548,7 @@ const AdminDashboard = () => {
                 <table className="w-full text-sm">
                   <thead className="bg-gray-50 border-b border-gray-100">
                     <tr>
-                      {['Khách hàng', 'Tổng tiền', 'Ngày đặt', 'Trạng thái', ''].map((h, i) => (
+                      {['Khách hàng', 'Tổng tiền', 'Thanh toán', 'Ngày đặt', 'Trạng thái', ''].map((h, i) => (
                         <th key={i} className="text-left px-6 py-4 text-xs font-semibold text-gray-400 uppercase tracking-wide">{h}</th>
                       ))}
                     </tr>
@@ -558,6 +558,16 @@ const AdminDashboard = () => {
                       <tr key={o.id} className="hover:bg-gray-50">
                         <td className="px-6 py-4"><p className="font-medium">{o.address}</p><p className="text-xs text-gray-400">{o.phone}</p></td>
                         <td className="px-6 py-4 font-semibold text-pink-500">{fmt(o.totalAmount)}</td>
+                        <td className="px-6 py-4">
+                          <span className={`inline-flex px-2 py-0.5 rounded text-[10px] font-black uppercase ${o.paymentMethod === 'ZaloPay' ? 'bg-indigo-100 text-indigo-600' : 'bg-gray-100 text-gray-600'}`}>
+                            {o.paymentMethod || 'COD'}
+                          </span>
+                          {o.paymentMethod === 'ZaloPay' && (
+                            <span className={`inline-flex ml-1 px-2 py-0.5 rounded text-[10px] font-black uppercase ${o.paymentStatus === 'paid' ? 'bg-green-100 text-green-600' : 'bg-yellow-100 text-yellow-600'}`}>
+                              {o.paymentStatus === 'paid' ? 'Đã thanh toán' : 'Chờ TT'}
+                            </span>
+                          )}
+                        </td>
                         <td className="px-6 py-4 text-xs text-gray-400">{new Date(o.createdAt).toLocaleDateString('vi-VN')}</td>
                         <td className="px-6 py-4">
                           <span className={`inline-flex px-3 py-1 rounded-lg text-xs font-semibold
