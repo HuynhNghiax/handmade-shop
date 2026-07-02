@@ -117,8 +117,44 @@ const Profile = () => {
     setPasswordForm({ ...passwordForm, [e.target.name]: e.target.value });
   };
 
+  const [avatarFile, setAvatarFile] = useState(null);
+  const [avatarPreview, setAvatarPreview] = useState(null);
+  const [avatarUploading, setAvatarUploading] = useState(false);
+
+  const handleAvatarFileChange = (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+    setAvatarFile(file);
+    setAvatarPreview(URL.createObjectURL(file));
+  };
+
+  const handleUploadAvatar = async () => {
+    if (!avatarFile) return;
+    setAvatarUploading(true);
+    try {
+      const formData = new FormData();
+      formData.append('image', avatarFile);
+      const res = await axios.post('http://localhost:5000/api/upload', formData, {
+        headers: {
+          token: `Bearer ${user.accessToken}`,
+          'Content-Type': 'multipart/form-data'
+        }
+      });
+      setUpdateForm(prev => ({ ...prev, avatar: res.data.url }));
+      setAvatarFile(null);
+    } catch (err) {
+      alert('Lỗi upload ảnh: ' + (err.response?.data?.message || err.message));
+    } finally {
+      setAvatarUploading(false);
+    }
+  };
+
   const handleUpdateInfoSubmit = async (e) => {
     e.preventDefault();
+    // Upload ảnh trước nếu user đã chọn file nhưng chưa upload
+    if (avatarFile) {
+      await handleUploadAvatar();
+    }
     setUpdateLoading(true);
     setUpdateMessage('');
     try {
@@ -134,6 +170,7 @@ const Profile = () => {
       login({ ...user, ...res.data.user });
       setUpdateMessage({ type: 'success', text: 'Cập nhật thông tin thành công!' });
       setIsEditingInfo(false);
+      setAvatarPreview(null);
     } catch (err) {
       setUpdateMessage({ type: 'error', text: err.response?.data?.message || 'Có lỗi xảy ra!' });
     } finally {
@@ -353,10 +390,40 @@ const Profile = () => {
                 </div>
               ) : (
                 <form onSubmit={handleUpdateInfoSubmit} className="space-y-6 animate-fade-in">
+                  {/* AVATAR PICKER */}
                   <div>
-                    <label className="block text-[10px] font-black text-gray-400 uppercase tracking-widest mb-2">Ảnh đại diện (URL)</label>
-                    <input type="text" name="avatar" value={updateForm.avatar} onChange={handleUpdateChange} className="w-full bg-gray-50 border-none rounded-2xl p-4 text-sm focus:ring-2 focus:ring-pink-500 outline-none" placeholder="https://..." />
+                    <label className="block text-[10px] font-black text-gray-400 uppercase tracking-widest mb-3">Ảnh đại diện</label>
+                    <div className="flex items-center gap-5">
+                      {/* Preview */}
+                      <div className="relative flex-shrink-0">
+                        <img
+                          src={avatarPreview || updateForm.avatar || `https://ui-avatars.com/api/?name=${encodeURIComponent(user?.name || 'U')}&background=fbcfe8&color=ec4899&size=128`}
+                          alt="Avatar preview"
+                          className="size-20 rounded-full object-cover border-4 border-pink-100 shadow-md"
+                          onError={(e) => { e.target.onerror = null; e.target.src = `https://ui-avatars.com/api/?name=${encodeURIComponent(user?.name || 'U')}&background=fbcfe8&color=ec4899&size=128`; }}
+                        />
+                        {avatarPreview && (
+                          <span className="absolute -bottom-1 -right-1 bg-green-500 text-white text-[8px] font-black px-2 py-0.5 rounded-full uppercase">Mới</span>
+                        )}
+                      </div>
+                      {/* File input */}
+                      <div className="flex-1">
+                        <label htmlFor="avatar-upload" className="cursor-pointer inline-flex items-center gap-2 bg-gray-50 hover:bg-pink-50 border-2 border-dashed border-gray-200 hover:border-pink-300 text-gray-500 hover:text-pink-500 text-xs font-bold px-5 py-3 rounded-2xl transition-all">
+                          <span>📁</span>
+                          <span>{avatarFile ? avatarFile.name : 'Chọn ảnh từ máy...'}</span>
+                        </label>
+                        <input
+                          id="avatar-upload"
+                          type="file"
+                          accept="image/*"
+                          className="hidden"
+                          onChange={handleAvatarFileChange}
+                        />
+                        <p className="text-[9px] text-gray-400 mt-2 font-bold uppercase tracking-wide">Hỗ trợ JPG, PNG, WEBP — Tối đa 5MB</p>
+                      </div>
+                    </div>
                   </div>
+
                   <div>
                     <label className="block text-[10px] font-black text-gray-400 uppercase tracking-widest mb-2">Họ và tên</label>
                     <input type="text" name="name" value={updateForm.name} onChange={handleUpdateChange} className="w-full bg-gray-50 border-none rounded-2xl p-4 text-sm focus:ring-2 focus:ring-pink-500 outline-none" required />
@@ -372,11 +439,11 @@ const Profile = () => {
                     </div>
                   </div>
                   <div className="flex gap-4">
-                    <button type="button" onClick={() => setIsEditingInfo(false)} className="flex-1 bg-gray-100 hover:bg-gray-200 text-gray-900 font-black uppercase tracking-widest text-[10px] py-4 rounded-full transition-all">
+                    <button type="button" onClick={() => { setIsEditingInfo(false); setAvatarPreview(null); setAvatarFile(null); }} className="flex-1 bg-gray-100 hover:bg-gray-200 text-gray-900 font-black uppercase tracking-widest text-[10px] py-4 rounded-full transition-all">
                       Hủy
                     </button>
-                    <button type="submit" disabled={updateLoading} className="flex-1 bg-pink-500 hover:bg-pink-600 text-white font-black uppercase tracking-widest text-[10px] py-4 rounded-full transition-all shadow-xl shadow-pink-500/20 disabled:opacity-50">
-                      {updateLoading ? 'Đang lưu...' : 'Lưu thay đổi'}
+                    <button type="submit" disabled={updateLoading || avatarUploading} className="flex-1 bg-pink-500 hover:bg-pink-600 text-white font-black uppercase tracking-widest text-[10px] py-4 rounded-full transition-all shadow-xl shadow-pink-500/20 disabled:opacity-50">
+                      {avatarUploading ? 'Đang tải ảnh...' : updateLoading ? 'Đang lưu...' : 'Lưu thay đổi'}
                     </button>
                   </div>
                 </form>

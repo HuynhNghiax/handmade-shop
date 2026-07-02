@@ -17,7 +17,15 @@ const Product = sequelize.define('Product', {
     },
     img: {
         type: DataTypes.STRING,
-        allowNull: false
+        allowNull: false,
+        get() {
+            const rawValue = this.getDataValue('img');
+            if (rawValue && rawValue.startsWith('/uploads')) {
+                // Trả về localhost:5000 để frontend local không bị trang cảnh báo của ngrok chặn tải ảnh
+                return `http://localhost:5000${rawValue}`;
+            }
+            return rawValue;
+        }
     },
     category: {
         type: DataTypes.STRING,

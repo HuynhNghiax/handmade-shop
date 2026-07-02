@@ -12,7 +12,17 @@ const User = sequelize.define(
       unique: true,
       validate: { isEmail: true },
     },
-    avatar: { type: DataTypes.STRING, allowNull: true },
+    avatar: {
+      type: DataTypes.STRING,
+      allowNull: true,
+      get() {
+        const rawValue = this.getDataValue('avatar');
+        if (rawValue && rawValue.startsWith('/uploads')) {
+          return `http://localhost:5000${rawValue}`;
+        }
+        return rawValue;
+      }
+    },
     phone: { type: DataTypes.STRING, allowNull: true },
     address: { type: DataTypes.STRING, allowNull: true },
     password: { type: DataTypes.STRING, allowNull: true },

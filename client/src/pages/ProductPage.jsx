@@ -13,7 +13,7 @@ const ProductPage = () => {
   const [currentPage, setCurrentPage] = useState(1);
   const itemsPerPage = 6;
 
-  const categories = ["Tất cả", "Nến thơm", "Phụ kiện", "Túi len", "Trang trí"];
+  const categories = ["Tất cả", "Trang sức", "Đồ da", "Len & Đan", "Quà tặng"];
 
   useEffect(() => {
     const fetchProducts = async () => {
