@@ -441,4 +441,136 @@ router.put("/makers/:id/ban", verifyAdmin, async (req, res) => {
   }
 });
 
+// THỐNG KÊ DOANH THU THEO THỜI GIAN
+router.get("/revenue-chart", verifyAdmin, async (req, res) => {
+  try {
+    const days = parseInt(req.query.days) || 30;
+    const groupByMonth = days >= 180; // 3 tháng trở lên → gộm theo tháng
+    const startDate = new Date();
+    startDate.setDate(startDate.getDate() - days);
+
+    const regularOrders = await Order.findAll({
+      where: { 
+        status: "Hoàn thành",
+        createdAt: { [Op.gte]: startDate }
+      },
+      attributes: ["totalAmount", "createdAt"],
+    });
+
+    const customOrders = await CustomOrder.findAll({
+      where: { 
+        status: "Hoàn thành", 
+        shopEarning: { [Op.not]: null },
+        updatedAt: { [Op.gte]: startDate }
+      },
+      attributes: ["shopEarning", "updatedAt"],
+    });
+
+    const revenueMap = {};
+
+    if (groupByMonth) {
+      // Khởi tạo tất cả các tháng trong khoảng
+      const cur = new Date(startDate);
+      cur.setDate(1); // đầu tháng
+      while (cur <= new Date()) {
+        const monthStr = `${cur.getFullYear()}-${String(cur.getMonth() + 1).padStart(2, '0')}`;
+        revenueMap[monthStr] = { month: monthStr, regular: 0, custom: 0, total: 0 };
+        cur.setMonth(cur.getMonth() + 1);
+      }
+
+      regularOrders.forEach((o) => {
+        const d = new Date(o.createdAt);
+        const monthStr = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
+        if (revenueMap[monthStr]) {
+          revenueMap[monthStr].regular += o.totalAmount;
+          revenueMap[monthStr].total += o.totalAmount;
+        }
+      });
+
+      customOrders.forEach((o) => {
+        const d = new Date(o.updatedAt);
+        const monthStr = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
+        if (revenueMap[monthStr]) {
+          revenueMap[monthStr].custom += o.shopEarning;
+          revenueMap[monthStr].total += o.shopEarning;
+        }
+      });
+
+      const result = Object.values(revenueMap).sort((a, b) => a.month.localeCompare(b.month));
+      return res.json({ groupBy: 'month', data: result });
+    } else {
+      // Khởi tạo tất cả các ngày với 0
+      for (let i = days - 1; i >= 0; i--) {
+        const d = new Date();
+        d.setDate(d.getDate() - i);
+        const dateStr = d.toISOString().split("T")[0];
+        revenueMap[dateStr] = { date: dateStr, regular: 0, custom: 0, total: 0 };
+      }
+
+      regularOrders.forEach((o) => {
+        const dateStr = o.createdAt.toISOString().split("T")[0];
+        if (revenueMap[dateStr]) {
+          revenueMap[dateStr].regular += o.totalAmount;
+          revenueMap[dateStr].total += o.totalAmount;
+        }
+      });
+
+      customOrders.forEach((o) => {
+        const dateStr = o.updatedAt.toISOString().split("T")[0];
+        if (revenueMap[dateStr]) {
+          revenueMap[dateStr].custom += o.shopEarning;
+          revenueMap[dateStr].total += o.shopEarning;
+        }
+      });
+
+      const result = Object.values(revenueMap).sort((a, b) => a.date.localeCompare(b.date));
+      return res.json({ groupBy: 'day', data: result });
+    }
+  } catch (err) {
+    console.error("[Admin GET /revenue-chart]", err.message);
+    res.status(500).json({ message: "Lỗi lấy dữ liệu biểu đồ", error: err.message });
+  }
+});
+
+// THỐNG KÊ DOANH THU THEO DANH MỤC (30 ngày gần nhất)
+router.get("/revenue-by-category", verifyAdmin, async (req, res) => {
+  try {
+    const startDate = new Date();
+    startDate.setDate(startDate.getDate() - 30);
+
+    const orders = await Order.findAll({
+      where: { 
+        status: "Hoàn thành",
+        createdAt: { [Op.gte]: startDate }
+      },
+      attributes: ["products"],
+    });
+
+    const categoryMap = {};
+
+    orders.forEach((order) => {
+      if (order.products && Array.isArray(order.products)) {
+        order.products.forEach((product) => {
+          const cat = product.category || "Khác";
+          const amount = product.price * product.quantity;
+          if (!categoryMap[cat]) {
+            categoryMap[cat] = 0;
+          }
+          categoryMap[cat] += amount;
+        });
+      }
+    });
+
+    const result = Object.keys(categoryMap).map(cat => ({
+      name: cat,
+      value: categoryMap[cat]
+    })).sort((a, b) => b.value - a.value);
+
+    res.json(result);
+  } catch (err) {
+    console.error("[Admin GET /revenue-by-category]", err.message);
+    res.status(500).json({ message: "Lỗi lấy dữ liệu danh mục", error: err.message });
+  }
+});
+
 module.exports = router;
