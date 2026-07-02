@@ -3,6 +3,9 @@ import axios from 'axios';
 import { AuthContext } from '../context/AuthContext';
 import { useNavigate } from 'react-router-dom';
 import MakerBadge from '../components/MakerBadge';
+import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip as RechartsTooltip, Legend, ResponsiveContainer, PieChart, Pie, Cell } from 'recharts';
+
+const COLORS = ['#ec4899', '#8b5cf6', '#3b82f6', '#10b981', '#f59e0b', '#ef4444', '#6b7280'];
 
 const TABS = [
   { id: 'analytics', icon: '📊', label: 'Báo cáo' },
@@ -15,6 +18,20 @@ const TABS = [
 ];
 
 const fmt = (n) => (n || 0).toLocaleString('vi-VN') + 'đ';
+
+const formatDate = (dateStr) => {
+  if (!dateStr) return '';
+  const parts = dateStr.split('-');
+  if (parts.length === 3) return `${parts[2]}/${parts[1]}`;
+  return dateStr;
+};
+
+const formatMonth = (monthStr) => {
+  if (!monthStr) return '';
+  const parts = monthStr.split('-');
+  if (parts.length === 2) return `T${parseInt(parts[1])}/${parts[0]}`;
+  return monthStr;
+};
 
 const AdminDashboard = () => {
   const { user } = useContext(AuthContext);
@@ -29,6 +46,12 @@ const AdminDashboard = () => {
   const [debtFilter, setDebtFilter] = useState('chua_thu');
   const [loading, setLoading] = useState(true);
   const [markingId, setMarkingId] = useState(null);
+
+  // States cho biểu đồ
+  const [revenueChartData, setRevenueChartData] = useState([]);
+  const [categoryChartData, setCategoryChartData] = useState([]);
+  const [chartDays, setChartDays] = useState(30);
+  const [chartGroupBy, setChartGroupBy] = useState('day'); // 'day' | 'month'
 
   const headers = () => ({ headers: { token: `Bearer ${user?.accessToken}` } });
 
@@ -59,10 +82,33 @@ const AdminDashboard = () => {
     }
   };
 
+  const fetchCharts = async (days) => {
+    try {
+      const [revRes, catRes] = await Promise.all([
+        axios.get(`http://localhost:5000/api/admin/revenue-chart?days=${days}`, headers()),
+        axios.get(`http://localhost:5000/api/admin/revenue-by-category`, headers())
+      ]);
+      setChartGroupBy(revRes.data.groupBy || 'day');
+      setRevenueChartData(revRes.data.data || []);
+      setCategoryChartData(catRes.data);
+    } catch (err) {
+      console.error('[AdminDashboard] fetchCharts:', err);
+    }
+  };
+
   useEffect(() => {
-    if (user?.isAdmin) fetchAll();
-    else navigate('/login');
+    if (user?.isAdmin) {
+      fetchAll();
+    } else {
+      navigate('/login');
+    }
   }, [user]);
+
+  useEffect(() => {
+    if (user?.isAdmin) {
+      fetchCharts(chartDays);
+    }
+  }, [user, chartDays]);
 
   const updateOrderStatus = async (id, newStatus) => {
     try {
@@ -204,6 +250,81 @@ const AdminDashboard = () => {
                   <p className="text-xs text-red-400 font-medium uppercase tracking-wide mb-2">Chưa thu được</p>
                   <p className="text-2xl font-bold text-red-500">{fmt(stats?.debt?.pendingAmount)}</p>
                   <p className="text-[9px] text-red-300 mt-1">{stats?.debt?.pendingCount || 0} khoản đang chờ</p>
+                </div>
+              </div>
+
+              {/* CHARTS SECTION */}
+              <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                {/* Column Chart */}
+                <div className="bg-white rounded-3xl p-6 border border-gray-100 lg:col-span-2">
+                  <div className="flex justify-between items-center mb-6">
+                    <p className="font-semibold">Doanh thu theo thời gian</p>
+                    <select
+                      value={chartDays}
+                      onChange={(e) => setChartDays(Number(e.target.value))}
+                      className="text-sm bg-gray-50 border border-gray-200 rounded-xl px-4 py-2 font-medium focus:outline-none focus:ring-2 focus:ring-pink-500/20"
+                    >
+                      <option value={7}>7 ngày qua</option>
+                      <option value={30}>30 ngày qua</option>
+                      <option value={90}>3 tháng qua</option>
+                      <option value={365}>1 năm qua</option>
+                    </select>
+                  </div>
+                  <div className="h-72">
+                    <ResponsiveContainer width="100%" height="100%">
+                      <BarChart data={revenueChartData} margin={{ bottom: chartGroupBy === 'month' ? 0 : chartDays > 30 ? 20 : 0 }}>
+                        <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f3f4f6" />
+                        <XAxis
+                          dataKey={chartGroupBy === 'month' ? 'month' : 'date'}
+                          axisLine={false}
+                          tickLine={false}
+                          tick={{ fontSize: 11, fill: '#9ca3af' }}
+                          tickFormatter={chartGroupBy === 'month' ? formatMonth : formatDate}
+                          interval={chartGroupBy === 'month' ? 0 : chartDays <= 7 ? 0 : chartDays <= 30 ? 3 : 6}
+                          angle={chartGroupBy !== 'month' && chartDays > 30 ? -30 : 0}
+                          textAnchor={chartGroupBy !== 'month' && chartDays > 30 ? 'end' : 'middle'}
+                          height={chartGroupBy !== 'month' && chartDays > 30 ? 48 : 30}
+                        />
+                        <YAxis axisLine={false} tickLine={false} tick={{ fontSize: 12, fill: '#9ca3af' }} tickFormatter={(value) => `${(value / 1000).toLocaleString()}k`} />
+                        <RechartsTooltip
+                          cursor={{ fill: '#f9fafb' }}
+                          formatter={(value) => [fmt(value), '']}
+                          labelFormatter={(label) =>
+                            chartGroupBy === 'month' ? `Tháng ${formatMonth(label)}` : `Ngày ${formatDate(label)}`
+                          }
+                        />
+                        <Legend iconType="circle" wrapperStyle={{ fontSize: 12 }} />
+                        <Bar dataKey="regular" name="Sản phẩm" stackId="a" fill="#ec4899" radius={[0, 0, 4, 4]} />
+                        <Bar dataKey="custom" name="Hoa hồng" stackId="a" fill="#8b5cf6" radius={[4, 4, 0, 0]} />
+                      </BarChart>
+                    </ResponsiveContainer>
+                  </div>
+                </div>
+
+                {/* Pie Chart */}
+                <div className="bg-white rounded-3xl p-6 border border-gray-100">
+                  <p className="font-semibold mb-6 text-center">Tỷ trọng danh mục (30 ngày)</p>
+                  <div className="h-72">
+                    <ResponsiveContainer width="100%" height="100%">
+                      <PieChart>
+                        <Pie
+                          data={categoryChartData}
+                          cx="50%"
+                          cy="50%"
+                          innerRadius={60}
+                          outerRadius={90}
+                          paddingAngle={5}
+                          dataKey="value"
+                        >
+                          {categoryChartData.map((entry, index) => (
+                            <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
+                          ))}
+                        </Pie>
+                        <RechartsTooltip formatter={(value) => [fmt(value), '']} />
+                        <Legend iconType="circle" wrapperStyle={{ fontSize: 12 }} />
+                      </PieChart>
+                    </ResponsiveContainer>
+                  </div>
                 </div>
               </div>
 
